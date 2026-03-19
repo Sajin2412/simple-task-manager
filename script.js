@@ -14,6 +14,7 @@ const emptyState = document.getElementById("empty-state");
 const taskCount = document.getElementById("task-count");
 const taskFilter = document.getElementById("task-filter");
 const enableRemindersButton = document.getElementById("enable-reminders");
+const csvImportInput = document.getElementById("csv-import");
 
 const storageKey = "simple-task-manager-tasks";
 let tasks = loadTasks();
@@ -32,20 +33,17 @@ taskForm.addEventListener("submit", function (event) {
     return;
   }
 
-  const newTask = {
-    id: crypto.randomUUID(),
+  const newTask = createTask({
     title,
     priority: taskPriorityInput.value,
     dueDate: taskDueDateInput.value,
     dueTime: taskDueTimeInput.value,
     reminderEnabled: taskReminderEnabledInput.checked,
-    reminderSentAt: "",
     description: taskDescriptionInput.value.trim(),
     remark: taskRemarkInput.value.trim(),
     actionRemarks: collectActionRemarks(),
-    completed: false,
-    timeline: [createTimelineEntry("Task created")],
-  };
+    timelineText: "Task created",
+  });
 
   tasks.unshift(newTask);
   saveTasks();
@@ -62,6 +60,17 @@ taskFilter.addEventListener("change", function () {
 
 enableRemindersButton.addEventListener("click", function () {
   requestNotificationPermission();
+});
+
+csvImportInput.addEventListener("change", function (event) {
+  const file = event.target.files && event.target.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  importCsvFile(file);
+  csvImportInput.value = "";
 });
 
 function loadTasks() {
@@ -81,6 +90,23 @@ function loadTasks() {
 
 function saveTasks() {
   localStorage.setItem(storageKey, JSON.stringify(tasks));
+}
+
+function createTask(taskData) {
+  return {
+    id: crypto.randomUUID(),
+    title: taskData.title,
+    priority: taskData.priority || "Medium",
+    dueDate: taskData.dueDate || "",
+    dueTime: taskData.dueTime || "",
+    reminderEnabled: Boolean(taskData.reminderEnabled),
+    reminderSentAt: "",
+    description: taskData.description || "",
+    remark: taskData.remark || "",
+    actionRemarks: Array.isArray(taskData.actionRemarks) ? taskData.actionRemarks.slice(0, 3) : [],
+    completed: false,
+    timeline: [createTimelineEntry(taskData.timelineText || "Task created")],
+  };
 }
 
 function renderTasks() {
@@ -331,6 +357,141 @@ function collectActionRemarks() {
   ].filter(function (item) {
     return item;
   });
+}
+
+function importCsvFile(file) {
+  const reader = new FileReader();
+
+  reader.onload = function () {
+    const text = String(reader.result || "");
+    const rows = parseCsv(text);
+
+    if (rows.length < 2) {
+      window.alert("The CSV file is empty or missing data.");
+      return;
+    }
+
+    const headers = rows[0].map(function (header) {
+      return header.trim();
+    });
+
+    const importedTasks = rows
+      .slice(1)
+      .map(function (row) {
+        return buildTaskFromCsvRow(headers, row);
+      })
+      .filter(function (task) {
+        return task !== null;
+      });
+
+    if (importedTasks.length === 0) {
+      window.alert("No valid tasks were found in the CSV file.");
+      return;
+    }
+
+    tasks = importedTasks.concat(tasks);
+    saveTasks();
+    renderTasks();
+    window.alert(`${importedTasks.length} tasks imported successfully.`);
+  };
+
+  reader.onerror = function () {
+    window.alert("Could not read the CSV file.");
+  };
+
+  reader.readAsText(file);
+}
+
+function buildTaskFromCsvRow(headers, row) {
+  const rowData = {};
+
+  headers.forEach(function (header, index) {
+    rowData[header] = (row[index] || "").trim();
+  });
+
+  if (!rowData.title) {
+    return null;
+  }
+
+  const priority = formatPriority(rowData.priority || "Medium") || "Medium";
+  const dueDate = rowData.dueDate && isValidDate(rowData.dueDate) ? rowData.dueDate : "";
+  const dueTime = rowData.dueTime && isValidTime(rowData.dueTime) ? rowData.dueTime : "";
+
+  return createTask({
+    title: rowData.title,
+    priority,
+    dueDate,
+    dueTime,
+    reminderEnabled: Boolean(dueDate && dueTime),
+    description: rowData.description || "",
+    remark: rowData.remark || "",
+    actionRemarks: [
+      rowData.actionRemark1 || "",
+      rowData.actionRemark2 || "",
+      rowData.actionRemark3 || "",
+    ].filter(function (item) {
+      return item;
+    }),
+    timelineText: "Imported from CSV",
+  });
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(value);
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+
+      row.push(value);
+
+      if (row.some(function (cell) {
+        return cell.trim() !== "";
+      })) {
+        rows.push(row);
+      }
+
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  row.push(value);
+
+  if (row.some(function (cell) {
+    return cell.trim() !== "";
+  })) {
+    rows.push(row);
+  }
+
+  return rows;
 }
 
 function parseActionRemarks(value) {

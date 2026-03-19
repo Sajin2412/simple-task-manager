@@ -15,6 +15,7 @@ This is a very small personal task management web app made with:
 - Edit an existing task
 - Add a description for detailed explanation
 - Add one remark and up to 3 action remarks
+- Import many tasks at once from Excel-saved CSV
 - Mark tasks as completed
 - Delete tasks
 - Filter tasks by status or priority
@@ -61,6 +62,32 @@ Important reminder note:
 - This version can show reminders while the app is open and notifications are allowed
 - It is not a full background push notification system yet
 - For guaranteed reminders even when the app is closed, the next step would be adding a backend service
+
+## Bulk import from Excel
+
+The simplest way is:
+
+1. Create your tasks in Excel
+2. Use these column names in the first row:
+   - `title`
+   - `priority`
+   - `dueDate`
+   - `dueTime`
+   - `description`
+   - `remark`
+   - `actionRemark1`
+   - `actionRemark2`
+   - `actionRemark3`
+3. Save the file as `CSV`
+4. In the app, use `Bulk Import From Excel`
+5. Select the CSV file
+
+Example:
+
+```text
+title,priority,dueDate,dueTime,description,remark,actionRemark1,actionRemark2,actionRemark3
+Pay rent,High,2026-03-25,09:00,Monthly house rent,Do before morning,Check account balance,Send transfer,Save receipt
+```
 
 ## Very simple hosting option: GitHub Pages
 

@@ -151,6 +151,17 @@ textarea {
   width: auto;
 }
 
+.file-input {
+  margin-top: 8px;
+}
+
+.import-help {
+  margin: 12px 0 0;
+  color: #475569;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
