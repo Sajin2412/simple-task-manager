@@ -5,6 +5,7 @@ This is a very small personal task management web app made with:
 - HTML
 - CSS
 - JavaScript
+- Supabase
 
 ## Features
 
@@ -15,7 +16,10 @@ This is a very small personal task management web app made with:
 - Edit an existing task
 - Add a description for detailed explanation
 - Add one remark and up to 3 action remarks
+- Add hierarchy like `Work > Project > Task`
 - Import many tasks at once from Excel-saved CSV
+- Sign up and log in with email and password
+- Sync the same tasks on iPhone and Mac
 - Mark tasks as completed
 - Delete tasks
 - Filter tasks by status or priority
@@ -42,6 +46,94 @@ python3 -m http.server 8000
 Then open:
 
 `http://localhost:8000`
+
+## Supabase setup
+
+To make login and sync work, do these steps once.
+
+### 1. Create a Supabase project
+
+1. Go to [Supabase](https://supabase.com)
+2. Create an account
+3. Create a new project
+4. Wait until the project is ready
+
+### 2. Create the tasks table
+
+In Supabase, open the SQL Editor and run this:
+
+```sql
+create extension if not exists pgcrypto;
+
+create table if not exists public.tasks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  priority text not null default 'Medium',
+  due_date date,
+  due_time time,
+  reminder_enabled boolean not null default false,
+  reminder_sent_at timestamptz,
+  description text not null default '',
+  remark text not null default '',
+  hierarchy text not null default '',
+  action_remarks jsonb not null default '[]'::jsonb,
+  completed boolean not null default false,
+  timeline jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+```
+
+### 3. Turn on row security
+
+Run this in SQL Editor:
+
+```sql
+alter table public.tasks enable row level security;
+
+create policy "Users can view their own tasks"
+on public.tasks
+for select
+using (auth.uid() = user_id);
+
+create policy "Users can insert their own tasks"
+on public.tasks
+for insert
+with check (auth.uid() = user_id);
+
+create policy "Users can update their own tasks"
+on public.tasks
+for update
+using (auth.uid() = user_id);
+
+create policy "Users can delete their own tasks"
+on public.tasks
+for delete
+using (auth.uid() = user_id);
+```
+
+### 4. Allow email login
+
+1. In Supabase, open `Authentication`
+2. Open `Providers`
+3. Make sure `Email` is enabled
+
+### 5. Add your project keys to the app
+
+1. In Supabase, open `Project Settings`
+2. Open `API`
+3. Copy:
+   - `Project URL`
+   - `anon public key`
+4. In this project folder, open [supabase-config.js](/Users/mac/Documents/SI%20-%20Codex/supabase-config.js)
+5. Replace the empty values with your real Supabase keys
+
+Example:
+
+```js
+window.SUPABASE_URL = "https://your-project-id.supabase.co";
+window.SUPABASE_ANON_KEY = "your-anon-key";
+```
 
 ## Use it on iPhone
 
@@ -75,6 +167,7 @@ The simplest way is:
    - `dueTime`
    - `description`
    - `remark`
+   - `hierarchy`
    - `actionRemark1`
    - `actionRemark2`
    - `actionRemark3`
@@ -85,8 +178,8 @@ The simplest way is:
 Example:
 
 ```text
-title,priority,dueDate,dueTime,description,remark,actionRemark1,actionRemark2,actionRemark3
-Pay rent,High,2026-03-25,09:00,Monthly house rent,Do before morning,Check account balance,Send transfer,Save receipt
+title,priority,dueDate,dueTime,description,remark,hierarchy,actionRemark1,actionRemark2,actionRemark3
+Pay rent,High,2026-03-25,09:00,Monthly house rent,Do before morning,Home > Finance > Rent,Check account balance,Send transfer,Save receipt
 ```
 
 ## Very simple hosting option: GitHub Pages
@@ -100,6 +193,7 @@ Pay rent,High,2026-03-25,09:00,Monthly house rent,Do before morning,Check accoun
    - `index.html`
    - `style.css`
    - `script.js`
+   - `supabase-config.js`
    - `manifest.webmanifest`
    - `service-worker.js`
    - `README.md`
@@ -143,6 +237,7 @@ git remote add origin https://github.com/your-name/simple-task-manager.git
 - `script.js` handles adding, completing, deleting, and saving tasks
 - `manifest.webmanifest` helps the app install on phones
 - `service-worker.js` helps the app load like a simple offline-friendly web app
+- `supabase-config.js` connects the app to your Supabase project
 
 ## New beginner-friendly upgrades
 
@@ -152,4 +247,4 @@ git remote add origin https://github.com/your-name/simple-task-manager.git
 
 ## Saving data
 
-Tasks are saved in your browser using `localStorage`, so they stay there even if you refresh the page.
+Tasks are now saved in Supabase, so the same account can use the same tasks on different devices.

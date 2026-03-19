@@ -1,3 +1,13 @@
+const authSection = document.getElementById("auth-section");
+const appSection = document.getElementById("app-section");
+const authForm = document.getElementById("auth-form");
+const authEmailInput = document.getElementById("auth-email");
+const authPasswordInput = document.getElementById("auth-password");
+const authModeSelect = document.getElementById("auth-mode");
+const authMessage = document.getElementById("auth-message");
+const userEmail = document.getElementById("user-email");
+const logoutButton = document.getElementById("logout-button");
+
 const taskForm = document.getElementById("task-form");
 const taskTitleInput = document.getElementById("task-title");
 const taskPriorityInput = document.getElementById("task-priority");
@@ -6,6 +16,7 @@ const taskDueTimeInput = document.getElementById("task-due-time");
 const taskReminderEnabledInput = document.getElementById("task-reminder-enabled");
 const taskDescriptionInput = document.getElementById("task-description");
 const taskRemarkInput = document.getElementById("task-remark");
+const taskHierarchyInput = document.getElementById("task-hierarchy");
 const taskActionRemark1Input = document.getElementById("task-action-remark-1");
 const taskActionRemark2Input = document.getElementById("task-action-remark-2");
 const taskActionRemark3Input = document.getElementById("task-action-remark-3");
@@ -16,20 +27,138 @@ const taskFilter = document.getElementById("task-filter");
 const enableRemindersButton = document.getElementById("enable-reminders");
 const csvImportInput = document.getElementById("csv-import");
 
-const storageKey = "simple-task-manager-tasks";
-let tasks = loadTasks();
+const supabaseUrl = window.SUPABASE_URL;
+const supabaseAnonKey = window.SUPABASE_ANON_KEY;
+
+let supabaseClient = null;
+let currentUser = null;
+let tasks = [];
 let activeFilter = "all";
 
-renderTasks();
-updateReminderButton();
-startReminderChecker();
+initializeApp();
 
-taskForm.addEventListener("submit", function (event) {
+async function initializeApp() {
+  if (!supabaseUrl || !supabaseAnonKey || !window.supabase) {
+    authMessage.textContent = "Supabase is not configured yet. Follow the README setup steps first.";
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+  authForm.addEventListener("submit", handleAuthSubmit);
+  logoutButton.addEventListener("click", handleLogout);
+  taskForm.addEventListener("submit", handleTaskSubmit);
+  taskFilter.addEventListener("change", function () {
+    activeFilter = taskFilter.value;
+    renderTasks();
+  });
+  enableRemindersButton.addEventListener("click", requestNotificationPermission);
+  csvImportInput.addEventListener("change", handleCsvImport);
+
+  updateReminderButton();
+  startReminderChecker();
+
+  const sessionResult = await supabaseClient.auth.getSession();
+  await applySession(sessionResult.data.session);
+
+  supabaseClient.auth.onAuthStateChange(function (_event, session) {
+    applySession(session);
+  });
+}
+
+async function applySession(session) {
+  currentUser = session ? session.user : null;
+
+  if (!currentUser) {
+    authSection.hidden = false;
+    appSection.hidden = true;
+    userEmail.textContent = "";
+    tasks = [];
+    renderTasks();
+    return;
+  }
+
+  authSection.hidden = true;
+  appSection.hidden = false;
+  userEmail.textContent = currentUser.email || "";
+  await loadTasks();
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+
+  if (!supabaseClient) {
+    return;
+  }
+
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+  const mode = authModeSelect.value;
+
+  if (!email || !password) {
+    authMessage.textContent = "Please enter email and password.";
+    return;
+  }
+
+  authMessage.textContent = "Please wait...";
+
+  let result;
+
+  if (mode === "signup") {
+    result = await supabaseClient.auth.signUp({ email, password });
+  } else {
+    result = await supabaseClient.auth.signInWithPassword({ email, password });
+  }
+
+  if (result.error) {
+    authMessage.textContent = result.error.message;
+    return;
+  }
+
+  if (mode === "signup" && !result.data.session) {
+    authMessage.textContent = "Signup successful. Please check your email if confirmation is enabled.";
+    return;
+  }
+
+  authMessage.textContent = "";
+  authForm.reset();
+}
+
+async function handleLogout() {
+  if (!supabaseClient) {
+    return;
+  }
+
+  await supabaseClient.auth.signOut();
+}
+
+async function loadTasks() {
+  if (!supabaseClient || !currentUser) {
+    return;
+  }
+
+  const result = await supabaseClient
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (result.error) {
+    emptyState.hidden = false;
+    emptyState.textContent = "Could not load tasks. Please check Supabase setup.";
+    return;
+  }
+
+  tasks = result.data.map(normalizeTask);
+  emptyState.textContent = "No tasks to show right now.";
+  renderTasks();
+}
+
+async function handleTaskSubmit(event) {
   event.preventDefault();
 
   const title = taskTitleInput.value.trim();
 
-  if (!title) {
+  if (!title || !currentUser) {
     return;
   }
 
@@ -41,72 +170,27 @@ taskForm.addEventListener("submit", function (event) {
     reminderEnabled: taskReminderEnabledInput.checked,
     description: taskDescriptionInput.value.trim(),
     remark: taskRemarkInput.value.trim(),
+    hierarchy: taskHierarchyInput.value.trim(),
     actionRemarks: collectActionRemarks(),
     timelineText: "Task created",
   });
 
-  tasks.unshift(newTask);
-  saveTasks();
+  const result = await supabaseClient
+    .from("tasks")
+    .insert(prepareTaskForDatabase(newTask))
+    .select()
+    .single();
+
+  if (result.error) {
+    window.alert(result.error.message);
+    return;
+  }
+
+  tasks.unshift(normalizeTask(result.data));
   renderTasks();
   taskForm.reset();
   taskPriorityInput.value = "Medium";
   taskTitleInput.focus();
-});
-
-taskFilter.addEventListener("change", function () {
-  activeFilter = taskFilter.value;
-  renderTasks();
-});
-
-enableRemindersButton.addEventListener("click", function () {
-  requestNotificationPermission();
-});
-
-csvImportInput.addEventListener("change", function (event) {
-  const file = event.target.files && event.target.files[0];
-
-  if (!file) {
-    return;
-  }
-
-  importCsvFile(file);
-  csvImportInput.value = "";
-});
-
-function loadTasks() {
-  const savedTasks = localStorage.getItem(storageKey);
-
-  if (!savedTasks) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(savedTasks).map(normalizeTask);
-  } catch (error) {
-    console.error("Could not load tasks:", error);
-    return [];
-  }
-}
-
-function saveTasks() {
-  localStorage.setItem(storageKey, JSON.stringify(tasks));
-}
-
-function createTask(taskData) {
-  return {
-    id: crypto.randomUUID(),
-    title: taskData.title,
-    priority: taskData.priority || "Medium",
-    dueDate: taskData.dueDate || "",
-    dueTime: taskData.dueTime || "",
-    reminderEnabled: Boolean(taskData.reminderEnabled),
-    reminderSentAt: "",
-    description: taskData.description || "",
-    remark: taskData.remark || "",
-    actionRemarks: Array.isArray(taskData.actionRemarks) ? taskData.actionRemarks.slice(0, 3) : [],
-    completed: false,
-    timeline: [createTimelineEntry(taskData.timelineText || "Task created")],
-  };
 }
 
 function renderTasks() {
@@ -130,12 +214,12 @@ function renderTasks() {
     checkbox.type = "checkbox";
     checkbox.checked = task.completed;
     checkbox.className = "task-checkbox";
-    checkbox.addEventListener("change", function () {
+    checkbox.addEventListener("change", async function () {
       task.completed = checkbox.checked;
       task.timeline.unshift(
         createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active")
       );
-      saveTasks();
+      await saveTask(task);
       renderTasks();
     });
 
@@ -152,23 +236,23 @@ function renderTasks() {
     const meta = document.createElement("div");
     meta.className = "task-meta";
 
-    const priorityBadge = document.createElement("span");
-    priorityBadge.className = `badge priority-${task.priority.toLowerCase()}`;
-    priorityBadge.textContent = `${task.priority} Priority`;
-    meta.appendChild(priorityBadge);
+    meta.appendChild(createBadge(`badge priority-${task.priority.toLowerCase()}`, `${task.priority} Priority`));
 
     if (task.dueDate) {
-      const dueDateBadge = document.createElement("span");
-      dueDateBadge.className = "badge due-date";
-      dueDateBadge.textContent = `Due: ${formatDate(task.dueDate)}${task.dueTime ? `, ${formatTime(task.dueTime)}` : ""}`;
-      meta.appendChild(dueDateBadge);
+      meta.appendChild(
+        createBadge(
+          "badge due-date",
+          `Due: ${formatDate(task.dueDate)}${task.dueTime ? `, ${formatTime(task.dueTime)}` : ""}`
+        )
+      );
     }
 
     if (task.reminderEnabled && task.dueDate && task.dueTime) {
-      const reminderBadge = document.createElement("span");
-      reminderBadge.className = "badge reminder";
-      reminderBadge.textContent = "Reminder: 15 min before";
-      meta.appendChild(reminderBadge);
+      meta.appendChild(createBadge("badge reminder", "Reminder: 15 min before"));
+    }
+
+    if (task.hierarchy) {
+      meta.appendChild(createBadge("badge hierarchy", `Hierarchy: ${task.hierarchy}`));
     }
 
     content.appendChild(title);
@@ -192,12 +276,7 @@ function renderTasks() {
     deleteButton.className = "delete-button";
     deleteButton.textContent = "Delete";
     deleteButton.addEventListener("click", function () {
-      tasks = tasks.filter(function (savedTask) {
-        return savedTask.id !== task.id;
-      });
-
-      saveTasks();
-      renderTasks();
+      deleteTask(task.id);
     });
 
     actions.appendChild(editButton);
@@ -210,25 +289,90 @@ function renderTasks() {
   });
 }
 
-function getFilteredTasks() {
-  return tasks.filter(function (task) {
-    if (activeFilter === "active") {
-      return !task.completed;
-    }
+function renderDetailsBlock(task) {
+  const details = document.createElement("div");
+  details.className = "details-block";
 
-    if (activeFilter === "completed") {
-      return task.completed;
-    }
+  const remarksHeader = document.createElement("div");
+  remarksHeader.className = "details-header";
 
-    if (activeFilter === "high" || activeFilter === "medium" || activeFilter === "low") {
-      return task.priority.toLowerCase() === activeFilter;
-    }
+  const remarksTitle = document.createElement("p");
+  remarksTitle.className = "details-title";
+  remarksTitle.textContent = "Remarks";
 
-    return true;
+  const remarksEditButton = document.createElement("button");
+  remarksEditButton.type = "button";
+  remarksEditButton.className = "edit-button small-edit-button";
+  remarksEditButton.textContent = "Edit";
+  remarksEditButton.addEventListener("click", function () {
+    editTaskNotes(task.id);
   });
+
+  remarksHeader.appendChild(remarksTitle);
+  remarksHeader.appendChild(remarksEditButton);
+  details.appendChild(remarksHeader);
+
+  const remarkText = document.createElement("p");
+  remarkText.className = "detail-text";
+  remarkText.textContent = task.remark || "No remark added.";
+  details.appendChild(remarkText);
+
+  const actionHeader = document.createElement("div");
+  actionHeader.className = "details-header";
+
+  const actionTitle = document.createElement("p");
+  actionTitle.className = "details-title";
+  actionTitle.textContent = "Action Remarks";
+
+  const actionEditButton = document.createElement("button");
+  actionEditButton.type = "button";
+  actionEditButton.className = "edit-button small-edit-button";
+  actionEditButton.textContent = "Edit";
+  actionEditButton.addEventListener("click", function () {
+    editTaskNotes(task.id);
+  });
+
+  actionHeader.appendChild(actionTitle);
+  actionHeader.appendChild(actionEditButton);
+  details.appendChild(actionHeader);
+
+  if (task.actionRemarks.length > 0) {
+    const actionList = document.createElement("ul");
+    actionList.className = "remark-list";
+
+    task.actionRemarks.forEach(function (remark) {
+      const item = document.createElement("li");
+      item.textContent = remark;
+      actionList.appendChild(item);
+    });
+
+    details.appendChild(actionList);
+  } else {
+    const noActions = document.createElement("p");
+    noActions.className = "detail-text";
+    noActions.textContent = "No action remarks added.";
+    details.appendChild(noActions);
+  }
+
+  const timelineTitle = document.createElement("p");
+  timelineTitle.className = "details-title";
+  timelineTitle.textContent = "Timeline Record";
+  details.appendChild(timelineTitle);
+
+  const timelineList = document.createElement("ul");
+  timelineList.className = "timeline-list";
+
+  task.timeline.forEach(function (entry) {
+    const item = document.createElement("li");
+    item.textContent = `${entry.text} - ${formatTimelineTime(entry.time)}`;
+    timelineList.appendChild(item);
+  });
+
+  details.appendChild(timelineList);
+  return details;
 }
 
-function editTask(taskId) {
+async function editTask(taskId) {
   const task = tasks.find(function (savedTask) {
     return savedTask.id === taskId;
   });
@@ -238,29 +382,18 @@ function editTask(taskId) {
   }
 
   const updatedTitle = window.prompt("Edit task name:", task.title);
-
-  if (updatedTitle === null) {
-    return;
-  }
+  if (updatedTitle === null) return;
 
   const cleanedTitle = updatedTitle.trim();
-
   if (!cleanedTitle) {
     window.alert("Task name cannot be empty.");
     return;
   }
 
-  const updatedPriority = window.prompt(
-    "Edit priority: High, Medium, or Low",
-    task.priority
-  );
-
-  if (updatedPriority === null) {
-    return;
-  }
+  const updatedPriority = window.prompt("Edit priority: High, Medium, or Low", task.priority);
+  if (updatedPriority === null) return;
 
   const cleanedPriority = formatPriority(updatedPriority);
-
   if (!cleanedPriority) {
     window.alert("Please enter High, Medium, or Low.");
     return;
@@ -270,13 +403,9 @@ function editTask(taskId) {
     "Edit due date in YYYY-MM-DD format. Leave empty to remove it.",
     task.dueDate
   );
-
-  if (updatedDueDate === null) {
-    return;
-  }
+  if (updatedDueDate === null) return;
 
   const cleanedDueDate = updatedDueDate.trim();
-
   if (cleanedDueDate && !isValidDate(cleanedDueDate)) {
     window.alert("Please use the YYYY-MM-DD date format.");
     return;
@@ -286,13 +415,9 @@ function editTask(taskId) {
     "Edit due time in HH:MM format. Leave empty to remove it.",
     task.dueTime || ""
   );
-
-  if (updatedDueTime === null) {
-    return;
-  }
+  if (updatedDueTime === null) return;
 
   const cleanedDueTime = updatedDueTime.trim();
-
   if (cleanedDueTime && !isValidTime(cleanedDueTime)) {
     window.alert("Please use the HH:MM time format.");
     return;
@@ -302,38 +427,28 @@ function editTask(taskId) {
     "Reminder before deadline? Type yes or no.",
     task.reminderEnabled ? "yes" : "no"
   );
-
-  if (updatedReminderEnabled === null) {
-    return;
-  }
+  if (updatedReminderEnabled === null) return;
 
   const cleanedReminderEnabled = parseReminderChoice(updatedReminderEnabled);
-
   if (cleanedReminderEnabled === null) {
     window.alert("Please type yes or no for reminder.");
     return;
   }
 
   const updatedDescription = window.prompt("Edit description:", task.description || "");
-
-  if (updatedDescription === null) {
-    return;
-  }
+  if (updatedDescription === null) return;
 
   const updatedRemark = window.prompt("Edit remark:", task.remark || "");
+  if (updatedRemark === null) return;
 
-  if (updatedRemark === null) {
-    return;
-  }
+  const updatedHierarchy = window.prompt("Edit hierarchy:", task.hierarchy || "");
+  if (updatedHierarchy === null) return;
 
   const updatedActionRemarks = window.prompt(
     "Edit action remarks. Use commas between items. Maximum 3.",
     task.actionRemarks.join(", ")
   );
-
-  if (updatedActionRemarks === null) {
-    return;
-  }
+  if (updatedActionRemarks === null) return;
 
   task.title = cleanedTitle;
   task.priority = cleanedPriority;
@@ -343,26 +458,76 @@ function editTask(taskId) {
   task.reminderSentAt = "";
   task.description = updatedDescription.trim();
   task.remark = updatedRemark.trim();
+  task.hierarchy = updatedHierarchy.trim();
   task.actionRemarks = parseActionRemarks(updatedActionRemarks);
   task.timeline.unshift(createTimelineEntry("Task details edited"));
-  saveTasks();
+
+  await saveTask(task);
   renderTasks();
 }
 
-function collectActionRemarks() {
-  return [
-    taskActionRemark1Input.value.trim(),
-    taskActionRemark2Input.value.trim(),
-    taskActionRemark3Input.value.trim(),
-  ].filter(function (item) {
-    return item;
+async function editTaskNotes(taskId) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
   });
+
+  if (!task) {
+    return;
+  }
+
+  const updatedRemark = window.prompt("Edit remark:", task.remark || "");
+  if (updatedRemark === null) return;
+
+  const updatedActionRemarks = window.prompt(
+    "Edit action remarks. Use commas between items. Maximum 3.",
+    task.actionRemarks.join(", ")
+  );
+  if (updatedActionRemarks === null) return;
+
+  task.remark = updatedRemark.trim();
+  task.actionRemarks = parseActionRemarks(updatedActionRemarks);
+  task.timeline.unshift(createTimelineEntry("Remarks updated"));
+  await saveTask(task);
+  renderTasks();
+}
+
+async function saveTask(task) {
+  const result = await supabaseClient
+    .from("tasks")
+    .update(prepareTaskForDatabase(task))
+    .eq("id", task.id);
+
+  if (result.error) {
+    window.alert(result.error.message);
+  }
+}
+
+async function deleteTask(taskId) {
+  const result = await supabaseClient.from("tasks").delete().eq("id", taskId);
+
+  if (result.error) {
+    window.alert(result.error.message);
+    return;
+  }
+
+  tasks = tasks.filter(function (task) {
+    return task.id !== taskId;
+  });
+  renderTasks();
+}
+
+function handleCsvImport(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  importCsvFile(file);
+  csvImportInput.value = "";
 }
 
 function importCsvFile(file) {
   const reader = new FileReader();
 
-  reader.onload = function () {
+  reader.onload = async function () {
     const text = String(reader.result || "");
     const rows = parseCsv(text);
 
@@ -389,10 +554,19 @@ function importCsvFile(file) {
       return;
     }
 
-    tasks = importedTasks.concat(tasks);
-    saveTasks();
+    const result = await supabaseClient
+      .from("tasks")
+      .insert(importedTasks.map(prepareTaskForDatabase))
+      .select();
+
+    if (result.error) {
+      window.alert(result.error.message);
+      return;
+    }
+
+    tasks = result.data.map(normalizeTask).concat(tasks);
     renderTasks();
-    window.alert(`${importedTasks.length} tasks imported successfully.`);
+    window.alert(`${result.data.length} tasks imported successfully.`);
   };
 
   reader.onerror = function () {
@@ -425,6 +599,7 @@ function buildTaskFromCsvRow(headers, row) {
     reminderEnabled: Boolean(dueDate && dueTime),
     description: rowData.description || "",
     remark: rowData.remark || "",
+    hierarchy: rowData.hierarchy || "",
     actionRemarks: [
       rowData.actionRemark1 || "",
       rowData.actionRemark2 || "",
@@ -434,6 +609,158 @@ function buildTaskFromCsvRow(headers, row) {
     }),
     timelineText: "Imported from CSV",
   });
+}
+
+function createBadge(className, text) {
+  const badge = document.createElement("span");
+  badge.className = className;
+  badge.textContent = text;
+  return badge;
+}
+
+function getFilteredTasks() {
+  return tasks.filter(function (task) {
+    if (activeFilter === "active") {
+      return !task.completed;
+    }
+
+    if (activeFilter === "completed") {
+      return task.completed;
+    }
+
+    if (activeFilter === "high" || activeFilter === "medium" || activeFilter === "low") {
+      return task.priority.toLowerCase() === activeFilter;
+    }
+
+    return true;
+  });
+}
+
+function collectActionRemarks() {
+  return [
+    taskActionRemark1Input.value.trim(),
+    taskActionRemark2Input.value.trim(),
+    taskActionRemark3Input.value.trim(),
+  ].filter(function (item) {
+    return item;
+  });
+}
+
+function prepareTaskForDatabase(task) {
+  return {
+    id: task.id,
+    user_id: currentUser.id,
+    title: task.title,
+    priority: task.priority,
+    due_date: task.dueDate || null,
+    due_time: task.dueTime || null,
+    reminder_enabled: task.reminderEnabled,
+    reminder_sent_at: task.reminderSentAt || null,
+    description: task.description,
+    remark: task.remark,
+    hierarchy: task.hierarchy,
+    action_remarks: task.actionRemarks,
+    completed: task.completed,
+    timeline: task.timeline,
+  };
+}
+
+function normalizeTask(task) {
+  return {
+    id: task.id || crypto.randomUUID(),
+    title: task.title || "",
+    priority: task.priority || "Medium",
+    dueDate: task.due_date || task.dueDate || "",
+    dueTime: task.due_time || task.dueTime || "",
+    reminderEnabled: Boolean(task.reminder_enabled ?? task.reminderEnabled),
+    reminderSentAt: task.reminder_sent_at || task.reminderSentAt || "",
+    description: task.description || "",
+    remark: task.remark || "",
+    hierarchy: task.hierarchy || "",
+    actionRemarks: Array.isArray(task.action_remarks)
+      ? task.action_remarks.slice(0, 3)
+      : Array.isArray(task.actionRemarks)
+      ? task.actionRemarks.slice(0, 3)
+      : [],
+    completed: Boolean(task.completed),
+    timeline: Array.isArray(task.timeline) && task.timeline.length > 0
+      ? task.timeline
+      : [createTimelineEntry("Task record created")],
+  };
+}
+
+function createTaskBaseTime() {
+  return new Date().toISOString();
+}
+
+function createTimelineEntry(text) {
+  return {
+    text,
+    time: createTaskBaseTime(),
+  };
+}
+
+function formatPriority(priorityValue) {
+  const value = priorityValue.trim().toLowerCase();
+
+  if (value === "high") return "High";
+  if (value === "medium") return "Medium";
+  if (value === "low") return "Low";
+  return "";
+}
+
+function parseActionRemarks(value) {
+  return value
+    .split(",")
+    .map(function (item) {
+      return item.trim();
+    })
+    .filter(function (item) {
+      return item;
+    })
+    .slice(0, 3);
+}
+
+function parseReminderChoice(value) {
+  const cleanedValue = value.trim().toLowerCase();
+  if (cleanedValue === "yes") return true;
+  if (cleanedValue === "no") return false;
+  return null;
+}
+
+function isValidDate(dateString) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
+}
+
+function isValidTime(timeString) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
+}
+
+function formatDate(dateString) {
+  const date = new Date(`${dateString}T00:00:00`);
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatTime(timeString) {
+  const date = new Date(`2000-01-01T${timeString}:00`);
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatTimelineTime(timeValue) {
+  const date = new Date(timeValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return timeValue;
+  }
+
+  return date.toLocaleString();
 }
 
 function parseCsv(text) {
@@ -494,217 +821,6 @@ function parseCsv(text) {
   return rows;
 }
 
-function parseActionRemarks(value) {
-  return value
-    .split(",")
-    .map(function (item) {
-      return item.trim();
-    })
-    .filter(function (item) {
-      return item;
-    })
-    .slice(0, 3);
-}
-
-function renderDetailsBlock(task) {
-  const details = document.createElement("div");
-  details.className = "details-block";
-
-  const remarksHeader = document.createElement("div");
-  remarksHeader.className = "details-header";
-
-  const remarksTitle = document.createElement("p");
-  remarksTitle.className = "details-title";
-  remarksTitle.textContent = "Remarks";
-
-  const remarksEditButton = document.createElement("button");
-  remarksEditButton.type = "button";
-  remarksEditButton.className = "edit-button small-edit-button";
-  remarksEditButton.textContent = "Edit";
-  remarksEditButton.addEventListener("click", function () {
-    editTaskNotes(task.id);
-  });
-
-  remarksHeader.appendChild(remarksTitle);
-  remarksHeader.appendChild(remarksEditButton);
-  details.appendChild(remarksHeader);
-
-  const remarkText = document.createElement("p");
-  remarkText.className = "detail-text";
-  remarkText.textContent = task.remark || "No remark added.";
-  details.appendChild(remarkText);
-
-  const actionHeader = document.createElement("div");
-  actionHeader.className = "details-header";
-
-  const actionSectionTitle = document.createElement("p");
-  actionSectionTitle.className = "details-title";
-  actionSectionTitle.textContent = "Action Remarks";
-
-  const actionEditButton = document.createElement("button");
-  actionEditButton.type = "button";
-  actionEditButton.className = "edit-button small-edit-button";
-  actionEditButton.textContent = "Edit";
-  actionEditButton.addEventListener("click", function () {
-    editTaskNotes(task.id);
-  });
-
-  actionHeader.appendChild(actionSectionTitle);
-  actionHeader.appendChild(actionEditButton);
-  details.appendChild(actionHeader);
-
-  if (task.actionRemarks.length > 0) {
-    const actionList = document.createElement("ul");
-    actionList.className = "remark-list";
-
-    task.actionRemarks.forEach(function (remark) {
-      const item = document.createElement("li");
-      item.textContent = remark;
-      actionList.appendChild(item);
-    });
-
-    details.appendChild(actionList);
-  } else {
-    const noActions = document.createElement("p");
-    noActions.className = "detail-text";
-    noActions.textContent = "No action remarks added.";
-    details.appendChild(noActions);
-  }
-
-  const timelineTitle = document.createElement("p");
-  timelineTitle.className = "details-title";
-  timelineTitle.textContent = "Timeline Record";
-  details.appendChild(timelineTitle);
-
-  const timelineList = document.createElement("ul");
-  timelineList.className = "timeline-list";
-
-  task.timeline.forEach(function (entry) {
-    const item = document.createElement("li");
-    item.textContent = `${entry.text} - ${entry.time}`;
-    timelineList.appendChild(item);
-  });
-
-  details.appendChild(timelineList);
-  return details;
-}
-
-function createTimelineEntry(text) {
-  return {
-    text,
-    time: new Date().toLocaleString(),
-  };
-}
-
-function normalizeTask(task) {
-  return {
-    id: task.id || crypto.randomUUID(),
-    title: task.title || "",
-    priority: task.priority || "Medium",
-    dueDate: task.dueDate || "",
-    dueTime: task.dueTime || "",
-    reminderEnabled: Boolean(task.reminderEnabled),
-    reminderSentAt: task.reminderSentAt || "",
-    description: task.description || "",
-    remark: task.remark || "",
-    actionRemarks: Array.isArray(task.actionRemarks) ? task.actionRemarks.slice(0, 3) : [],
-    completed: Boolean(task.completed),
-    timeline: Array.isArray(task.timeline) && task.timeline.length > 0
-      ? task.timeline
-      : [createTimelineEntry("Task record created")],
-  };
-}
-
-function editTaskNotes(taskId) {
-  const task = tasks.find(function (savedTask) {
-    return savedTask.id === taskId;
-  });
-
-  if (!task) {
-    return;
-  }
-
-  const updatedRemark = window.prompt("Edit remark:", task.remark || "");
-
-  if (updatedRemark === null) {
-    return;
-  }
-
-  const updatedActionRemarks = window.prompt(
-    "Edit action remarks. Use commas between items. Maximum 3.",
-    task.actionRemarks.join(", ")
-  );
-
-  if (updatedActionRemarks === null) {
-    return;
-  }
-
-  task.remark = updatedRemark.trim();
-  task.actionRemarks = parseActionRemarks(updatedActionRemarks);
-  task.timeline.unshift(createTimelineEntry("Remarks updated"));
-  saveTasks();
-  renderTasks();
-}
-
-function formatPriority(priorityValue) {
-  const value = priorityValue.trim().toLowerCase();
-
-  if (value === "high") {
-    return "High";
-  }
-
-  if (value === "medium") {
-    return "Medium";
-  }
-
-  if (value === "low") {
-    return "Low";
-  }
-
-  return "";
-}
-
-function isValidDate(dateString) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
-}
-
-function isValidTime(timeString) {
-  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
-}
-
-function parseReminderChoice(value) {
-  const cleanedValue = value.trim().toLowerCase();
-
-  if (cleanedValue === "yes") {
-    return true;
-  }
-
-  if (cleanedValue === "no") {
-    return false;
-  }
-
-  return null;
-}
-
-function formatDate(dateString) {
-  const date = new Date(`${dateString}T00:00:00`);
-
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(timeString) {
-  const date = new Date(`2000-01-01T${timeString}:00`);
-
-  return date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function requestNotificationPermission() {
   if (!("Notification" in window)) {
     window.alert("This browser does not support notifications.");
@@ -753,9 +869,8 @@ function checkTaskReminders() {
     sendTaskReminder(task);
     task.reminderSentAt = new Date().toISOString();
     task.timeline.unshift(createTimelineEntry("15 minute reminder sent"));
+    saveTask(task);
   });
-
-  saveTasks();
 }
 
 function shouldSendReminder(task, now) {
@@ -764,39 +879,36 @@ function shouldSendReminder(task, now) {
   }
 
   const dueTime = getTaskDeadline(task);
-
   if (!dueTime) {
     return false;
   }
 
-  const fifteenMinutesBefore = dueTime.getTime() - 15 * 60 * 1000;
-  return now >= fifteenMinutesBefore && now < dueTime.getTime();
+  const reminderTime = dueTime.getTime() - 15 * 60 * 1000;
+  return now >= reminderTime && now < dueTime.getTime();
 }
 
 function getTaskDeadline(task) {
   const deadline = new Date(`${task.dueDate}T${task.dueTime}:00`);
-
   if (Number.isNaN(deadline.getTime())) {
     return null;
   }
-
   return deadline;
 }
 
 function sendTaskReminder(task) {
-  const body = task.dueTime
-    ? `${task.title} is due at ${formatTime(task.dueTime)}.`
-    : `${task.title} is due soon.`;
+  const body = `${task.title} is due at ${formatTime(task.dueTime)}.`;
 
-  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-    navigator.serviceWorker.ready.then(function (registration) {
-      registration.showNotification("Task Reminder", {
-        body,
-        tag: task.id,
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.ready
+      .then(function (registration) {
+        registration.showNotification("Task Reminder", {
+          body,
+          tag: task.id,
+        });
+      })
+      .catch(function () {
+        new Notification("Task Reminder", { body });
       });
-    }).catch(function () {
-      new Notification("Task Reminder", { body });
-    });
     return;
   }
 

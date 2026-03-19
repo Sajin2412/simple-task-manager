@@ -14,7 +14,47 @@
 </head>
 <body>
   <main class="app">
-    <section class="card">
+    <section id="auth-section" class="card auth-card">
+      <h1>Sajin Task Management</h1>
+      <p class="subtitle">Sign up or log in to sync the same tasks on Mac and iPhone.</p>
+
+      <form id="auth-form" class="task-form">
+        <label>
+          Email
+          <input id="auth-email" type="email" placeholder="you@example.com" required>
+        </label>
+
+        <label>
+          Password
+          <input id="auth-password" type="password" placeholder="Choose a password" required>
+        </label>
+
+        <label>
+          Mode
+          <select id="auth-mode">
+            <option value="login">Login</option>
+            <option value="signup">Sign Up</option>
+          </select>
+        </label>
+
+        <button type="submit" class="primary-button">Continue</button>
+      </form>
+
+      <p id="auth-message" class="auth-message"></p>
+    </section>
+
+    <section id="app-section" hidden>
+      <section class="card status-card">
+        <div class="status-row">
+          <div>
+            <p class="status-label">Logged in as</p>
+            <p id="user-email" class="status-value"></p>
+          </div>
+          <button id="logout-button" type="button" class="edit-button logout-button">Logout</button>
+        </div>
+      </section>
+
+      <section class="card">
       <h1>Sajin Task Management</h1>
       <p class="subtitle">A simple place to keep track of your tasks.</p>
 
@@ -78,6 +118,15 @@
           >
         </label>
 
+        <label>
+          Hierarchy
+          <input
+            id="task-hierarchy"
+            type="text"
+            placeholder="Example: Work > Accounts > Rent"
+          >
+        </label>
+
         <fieldset class="remarks-group">
           <legend>Action Remarks (up to 3)</legend>
           <input id="task-action-remark-1" type="text" placeholder="Action remark 1">
@@ -106,13 +155,13 @@
         <input id="csv-import" type="file" accept=".csv" class="file-input">
         <p class="import-help">
           Use these columns: <strong>title</strong>, <strong>priority</strong>, <strong>dueDate</strong>,
-          <strong>dueTime</strong>, <strong>description</strong>, <strong>remark</strong>,
+          <strong>dueTime</strong>, <strong>description</strong>, <strong>remark</strong>, <strong>hierarchy</strong>,
           <strong>actionRemark1</strong>, <strong>actionRemark2</strong>, <strong>actionRemark3</strong>
         </p>
       </div>
-    </section>
+      </section>
 
-    <section class="card">
+      <section class="card">
       <div class="toolbar">
         <div class="list-header">
           <h2>All Tasks</h2>
@@ -137,9 +186,12 @@
       <p id="empty-state" class="empty-state">
         No tasks to show right now.
       </p>
+      </section>
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -1,10 +1,11 @@
-const cacheName = "simple-task-manager-v1";
+const cacheName = "simple-task-manager-v2";
 const filesToCache = [
   "./",
   "./index.html",
   "./style.css",
   "./script.js",
   "./manifest.webmanifest",
+  "./supabase-config.js",
 ];
 
 self.addEventListener("install", function (event) {
