@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Task Manager</title>
+  <meta name="theme-color" content="#06b6d4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Task Manager">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <h1>My Task Manager</h1>
+      <p class="subtitle">A simple place to keep track of your tasks.</p>
+
+      <form id="task-form" class="task-form">
+        <label>
+          Task name
+          <input
+            id="task-title"
+            type="text"
+            placeholder="Example: Pay electricity bill"
+            required
+          >
+        </label>
+
+        <div class="form-row">
+          <label>
+            Priority
+            <select id="task-priority">
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </label>
+
+          <label>
+            Due date
+            <input id="task-due-date" type="date">
+          </label>
+        </div>
+
+        <label>
+          Description
+          <textarea
+            id="task-description"
+            rows="4"
+            placeholder="Write full details about this task"
+          ></textarea>
+        </label>
+
+        <label>
+          Remark
+          <input
+            id="task-remark"
+            type="text"
+            placeholder="Example: Check before Friday"
+          >
+        </label>
+
+        <fieldset class="remarks-group">
+          <legend>Action Remarks (up to 3)</legend>
+          <input id="task-action-remark-1" type="text" placeholder="Action remark 1">
+          <input id="task-action-remark-2" type="text" placeholder="Action remark 2">
+          <input id="task-action-remark-3" type="text" placeholder="Action remark 3">
+        </fieldset>
+
+        <button type="submit" class="primary-button">Add Task</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <div class="list-header">
+          <h2>All Tasks</h2>
+          <span id="task-count" class="task-count">0 tasks</span>
+        </div>
+
+        <label class="filter-label">
+          Filter
+          <select id="task-filter">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="high">High Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="low">Low Priority</option>
+          </select>
+        </label>
+      </div>
+
+      <ul id="task-list" class="task-list"></ul>
+
+      <p id="empty-state" class="empty-state">
+        No tasks to show right now.
+      </p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
