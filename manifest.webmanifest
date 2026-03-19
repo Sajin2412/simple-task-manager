@@ -1,6 +1,6 @@
 {
-  "name": "Simple Task Manager",
-  "short_name": "Tasks",
+  "name": "Sajin Task Management",
+  "short_name": "Sajin Tasks",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f9fafb",

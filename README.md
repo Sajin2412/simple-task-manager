@@ -11,12 +11,14 @@ This is a very small personal task management web app made with:
 - Add a new task
 - Choose priority: High, Medium, or Low
 - Add a due date
+- Add a due time
 - Edit an existing task
 - Add a description for detailed explanation
 - Add one remark and up to 3 action remarks
 - Mark tasks as completed
 - Delete tasks
 - Filter tasks by status or priority
+- Get browser reminders 15 minutes before deadline while the app is open
 - Keep a simple timeline record for each task
 - View all tasks in a clean list
 
@@ -53,6 +55,12 @@ Simple steps:
 5. Tap `Add to Home Screen`.
 
 After that, it will behave more like a simple app on your phone.
+
+Important reminder note:
+
+- This version can show reminders while the app is open and notifications are allowed
+- It is not a full background push notification system yet
+- For guaranteed reminders even when the app is closed, the next step would be adding a backend service
 
 ## Very simple hosting option: GitHub Pages
 

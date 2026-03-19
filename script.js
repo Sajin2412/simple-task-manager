@@ -2,6 +2,8 @@ const taskForm = document.getElementById("task-form");
 const taskTitleInput = document.getElementById("task-title");
 const taskPriorityInput = document.getElementById("task-priority");
 const taskDueDateInput = document.getElementById("task-due-date");
+const taskDueTimeInput = document.getElementById("task-due-time");
+const taskReminderEnabledInput = document.getElementById("task-reminder-enabled");
 const taskDescriptionInput = document.getElementById("task-description");
 const taskRemarkInput = document.getElementById("task-remark");
 const taskActionRemark1Input = document.getElementById("task-action-remark-1");
@@ -11,12 +13,15 @@ const taskList = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 const taskCount = document.getElementById("task-count");
 const taskFilter = document.getElementById("task-filter");
+const enableRemindersButton = document.getElementById("enable-reminders");
 
 const storageKey = "simple-task-manager-tasks";
 let tasks = loadTasks();
 let activeFilter = "all";
 
 renderTasks();
+updateReminderButton();
+startReminderChecker();
 
 taskForm.addEventListener("submit", function (event) {
   event.preventDefault();
@@ -32,6 +37,9 @@ taskForm.addEventListener("submit", function (event) {
     title,
     priority: taskPriorityInput.value,
     dueDate: taskDueDateInput.value,
+    dueTime: taskDueTimeInput.value,
+    reminderEnabled: taskReminderEnabledInput.checked,
+    reminderSentAt: "",
     description: taskDescriptionInput.value.trim(),
     remark: taskRemarkInput.value.trim(),
     actionRemarks: collectActionRemarks(),
@@ -50,6 +58,10 @@ taskForm.addEventListener("submit", function (event) {
 taskFilter.addEventListener("change", function () {
   activeFilter = taskFilter.value;
   renderTasks();
+});
+
+enableRemindersButton.addEventListener("click", function () {
+  requestNotificationPermission();
 });
 
 function loadTasks() {
@@ -122,8 +134,15 @@ function renderTasks() {
     if (task.dueDate) {
       const dueDateBadge = document.createElement("span");
       dueDateBadge.className = "badge due-date";
-      dueDateBadge.textContent = `Due: ${formatDate(task.dueDate)}`;
+      dueDateBadge.textContent = `Due: ${formatDate(task.dueDate)}${task.dueTime ? `, ${formatTime(task.dueTime)}` : ""}`;
       meta.appendChild(dueDateBadge);
+    }
+
+    if (task.reminderEnabled && task.dueDate && task.dueTime) {
+      const reminderBadge = document.createElement("span");
+      reminderBadge.className = "badge reminder";
+      reminderBadge.textContent = "Reminder: 15 min before";
+      meta.appendChild(reminderBadge);
     }
 
     content.appendChild(title);
@@ -237,6 +256,38 @@ function editTask(taskId) {
     return;
   }
 
+  const updatedDueTime = window.prompt(
+    "Edit due time in HH:MM format. Leave empty to remove it.",
+    task.dueTime || ""
+  );
+
+  if (updatedDueTime === null) {
+    return;
+  }
+
+  const cleanedDueTime = updatedDueTime.trim();
+
+  if (cleanedDueTime && !isValidTime(cleanedDueTime)) {
+    window.alert("Please use the HH:MM time format.");
+    return;
+  }
+
+  const updatedReminderEnabled = window.prompt(
+    "Reminder before deadline? Type yes or no.",
+    task.reminderEnabled ? "yes" : "no"
+  );
+
+  if (updatedReminderEnabled === null) {
+    return;
+  }
+
+  const cleanedReminderEnabled = parseReminderChoice(updatedReminderEnabled);
+
+  if (cleanedReminderEnabled === null) {
+    window.alert("Please type yes or no for reminder.");
+    return;
+  }
+
   const updatedDescription = window.prompt("Edit description:", task.description || "");
 
   if (updatedDescription === null) {
@@ -261,6 +312,9 @@ function editTask(taskId) {
   task.title = cleanedTitle;
   task.priority = cleanedPriority;
   task.dueDate = cleanedDueDate;
+  task.dueTime = cleanedDueTime;
+  task.reminderEnabled = cleanedReminderEnabled;
+  task.reminderSentAt = "";
   task.description = updatedDescription.trim();
   task.remark = updatedRemark.trim();
   task.actionRemarks = parseActionRemarks(updatedActionRemarks);
@@ -295,12 +349,48 @@ function renderDetailsBlock(task) {
   const details = document.createElement("div");
   details.className = "details-block";
 
-  details.appendChild(createTextSection("Remark", task.remark || "No remark added."));
+  const remarksHeader = document.createElement("div");
+  remarksHeader.className = "details-header";
+
+  const remarksTitle = document.createElement("p");
+  remarksTitle.className = "details-title";
+  remarksTitle.textContent = "Remarks";
+
+  const remarksEditButton = document.createElement("button");
+  remarksEditButton.type = "button";
+  remarksEditButton.className = "edit-button small-edit-button";
+  remarksEditButton.textContent = "Edit";
+  remarksEditButton.addEventListener("click", function () {
+    editTaskNotes(task.id);
+  });
+
+  remarksHeader.appendChild(remarksTitle);
+  remarksHeader.appendChild(remarksEditButton);
+  details.appendChild(remarksHeader);
+
+  const remarkText = document.createElement("p");
+  remarkText.className = "detail-text";
+  remarkText.textContent = task.remark || "No remark added.";
+  details.appendChild(remarkText);
+
+  const actionHeader = document.createElement("div");
+  actionHeader.className = "details-header";
 
   const actionSectionTitle = document.createElement("p");
   actionSectionTitle.className = "details-title";
   actionSectionTitle.textContent = "Action Remarks";
-  details.appendChild(actionSectionTitle);
+
+  const actionEditButton = document.createElement("button");
+  actionEditButton.type = "button";
+  actionEditButton.className = "edit-button small-edit-button";
+  actionEditButton.textContent = "Edit";
+  actionEditButton.addEventListener("click", function () {
+    editTaskNotes(task.id);
+  });
+
+  actionHeader.appendChild(actionSectionTitle);
+  actionHeader.appendChild(actionEditButton);
+  details.appendChild(actionHeader);
 
   if (task.actionRemarks.length > 0) {
     const actionList = document.createElement("ul");
@@ -338,21 +428,6 @@ function renderDetailsBlock(task) {
   return details;
 }
 
-function createTextSection(title, text) {
-  const wrapper = document.createElement("div");
-  const sectionTitle = document.createElement("p");
-  sectionTitle.className = "details-title";
-  sectionTitle.textContent = title;
-
-  const sectionText = document.createElement("p");
-  sectionText.className = "detail-text";
-  sectionText.textContent = text;
-
-  wrapper.appendChild(sectionTitle);
-  wrapper.appendChild(sectionText);
-  return wrapper;
-}
-
 function createTimelineEntry(text) {
   return {
     text,
@@ -366,6 +441,9 @@ function normalizeTask(task) {
     title: task.title || "",
     priority: task.priority || "Medium",
     dueDate: task.dueDate || "",
+    dueTime: task.dueTime || "",
+    reminderEnabled: Boolean(task.reminderEnabled),
+    reminderSentAt: task.reminderSentAt || "",
     description: task.description || "",
     remark: task.remark || "",
     actionRemarks: Array.isArray(task.actionRemarks) ? task.actionRemarks.slice(0, 3) : [],
@@ -374,6 +452,37 @@ function normalizeTask(task) {
       ? task.timeline
       : [createTimelineEntry("Task record created")],
   };
+}
+
+function editTaskNotes(taskId) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
+  });
+
+  if (!task) {
+    return;
+  }
+
+  const updatedRemark = window.prompt("Edit remark:", task.remark || "");
+
+  if (updatedRemark === null) {
+    return;
+  }
+
+  const updatedActionRemarks = window.prompt(
+    "Edit action remarks. Use commas between items. Maximum 3.",
+    task.actionRemarks.join(", ")
+  );
+
+  if (updatedActionRemarks === null) {
+    return;
+  }
+
+  task.remark = updatedRemark.trim();
+  task.actionRemarks = parseActionRemarks(updatedActionRemarks);
+  task.timeline.unshift(createTimelineEntry("Remarks updated"));
+  saveTasks();
+  renderTasks();
 }
 
 function formatPriority(priorityValue) {
@@ -398,6 +507,24 @@ function isValidDate(dateString) {
   return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
 }
 
+function isValidTime(timeString) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
+}
+
+function parseReminderChoice(value) {
+  const cleanedValue = value.trim().toLowerCase();
+
+  if (cleanedValue === "yes") {
+    return true;
+  }
+
+  if (cleanedValue === "no") {
+    return false;
+  }
+
+  return null;
+}
+
 function formatDate(dateString) {
   const date = new Date(`${dateString}T00:00:00`);
 
@@ -406,6 +533,113 @@ function formatDate(dateString) {
     month: "short",
     day: "numeric",
   });
+}
+
+function formatTime(timeString) {
+  const date = new Date(`2000-01-01T${timeString}:00`);
+
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function requestNotificationPermission() {
+  if (!("Notification" in window)) {
+    window.alert("This browser does not support notifications.");
+    return;
+  }
+
+  Notification.requestPermission().then(function () {
+    updateReminderButton();
+  });
+}
+
+function updateReminderButton() {
+  if (!("Notification" in window)) {
+    enableRemindersButton.textContent = "Notifications Not Supported";
+    enableRemindersButton.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    enableRemindersButton.textContent = "Notifications Enabled";
+    enableRemindersButton.disabled = true;
+    return;
+  }
+
+  enableRemindersButton.textContent = "Enable Notifications";
+  enableRemindersButton.disabled = false;
+}
+
+function startReminderChecker() {
+  checkTaskReminders();
+  window.setInterval(checkTaskReminders, 30000);
+}
+
+function checkTaskReminders() {
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+
+  const now = Date.now();
+
+  tasks.forEach(function (task) {
+    if (!shouldSendReminder(task, now)) {
+      return;
+    }
+
+    sendTaskReminder(task);
+    task.reminderSentAt = new Date().toISOString();
+    task.timeline.unshift(createTimelineEntry("15 minute reminder sent"));
+  });
+
+  saveTasks();
+}
+
+function shouldSendReminder(task, now) {
+  if (!task.reminderEnabled || task.completed || !task.dueDate || !task.dueTime || task.reminderSentAt) {
+    return false;
+  }
+
+  const dueTime = getTaskDeadline(task);
+
+  if (!dueTime) {
+    return false;
+  }
+
+  const fifteenMinutesBefore = dueTime.getTime() - 15 * 60 * 1000;
+  return now >= fifteenMinutesBefore && now < dueTime.getTime();
+}
+
+function getTaskDeadline(task) {
+  const deadline = new Date(`${task.dueDate}T${task.dueTime}:00`);
+
+  if (Number.isNaN(deadline.getTime())) {
+    return null;
+  }
+
+  return deadline;
+}
+
+function sendTaskReminder(task) {
+  const body = task.dueTime
+    ? `${task.title} is due at ${formatTime(task.dueTime)}.`
+    : `${task.title} is due soon.`;
+
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(function (registration) {
+      registration.showNotification("Task Reminder", {
+        body,
+        tag: task.id,
+      });
+    }).catch(function () {
+      new Notification("Task Reminder", { body });
+    });
+    return;
+  }
+
+  new Notification("Task Reminder", { body });
 }
 
 if ("serviceWorker" in navigator) {
