@@ -45,6 +45,21 @@
           </label>
         </div>
 
+        <div class="form-row">
+          <label>
+            Due time
+            <input id="task-due-time" type="time">
+          </label>
+
+          <label class="checkbox-label">
+            <span>Reminder</span>
+            <div class="checkbox-row">
+              <input id="task-reminder-enabled" type="checkbox" checked>
+              <span>Notify me 15 minutes before deadline</span>
+            </div>
+          </label>
+        </div>
+
         <label>
           Description
           <textarea
@@ -72,6 +87,16 @@
 
         <button type="submit" class="primary-button">Add Task</button>
       </form>
+
+      <div class="notification-box">
+        <p class="notification-title">Browser reminders</p>
+        <p class="notification-text">
+          Turn on notifications to get a reminder 15 minutes before a task deadline while this app is open.
+        </p>
+        <button id="enable-reminders" type="button" class="edit-button notification-button">
+          Enable Notifications
+        </button>
+      </div>
     </section>
 
     <section class="card">

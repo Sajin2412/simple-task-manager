@@ -42,6 +42,30 @@ h2 {
   margin-bottom: 16px;
 }
 
+.checkbox-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-weight: 400;
+}
+
+.checkbox-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
 input,
 textarea,
 select,
@@ -101,6 +125,30 @@ textarea {
 
 .primary-button:hover {
   background: #0891b2;
+}
+
+.notification-box {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #cffafe;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #ecfeff 100%);
+}
+
+.notification-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #0891b2;
+}
+
+.notification-text {
+  margin: 0 0 12px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.notification-button {
+  width: auto;
 }
 
 .toolbar {
@@ -216,10 +264,23 @@ textarea {
   color: #475569;
 }
 
+.badge.reminder {
+  background: #cffafe;
+  color: #0e7490;
+}
+
 .details-block {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid #e5e7eb;
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .details-title {
@@ -227,6 +288,10 @@ textarea {
   font-size: 14px;
   font-weight: 700;
   color: #0891b2;
+}
+
+.details-header .details-title {
+  margin-bottom: 0;
 }
 
 .detail-text {
@@ -280,6 +345,13 @@ textarea {
 
 .edit-button:hover {
   background: #d1d5db;
+}
+
+.small-edit-button {
+  width: auto;
+  min-width: auto;
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 .empty-state {
