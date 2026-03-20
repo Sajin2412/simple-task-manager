@@ -59,6 +59,38 @@
         <p id="app-message" class="app-message" hidden></p>
       </section>
 
+      <section class="summary-grid">
+        <article class="card summary-card">
+          <p class="summary-label">Total Tasks</p>
+          <p id="summary-total" class="summary-value">0</p>
+        </article>
+
+        <article class="card summary-card">
+          <p class="summary-label">Pending</p>
+          <p id="summary-pending" class="summary-value">0</p>
+        </article>
+
+        <article class="card summary-card">
+          <p class="summary-label">Completed</p>
+          <p id="summary-completed" class="summary-value">0</p>
+        </article>
+
+        <article class="card summary-card summary-alert">
+          <p class="summary-label">Overdue</p>
+          <p id="summary-overdue" class="summary-value">0</p>
+        </article>
+      </section>
+
+      <section class="card reminder-card">
+        <div class="list-header">
+          <h2>Reminder Center</h2>
+          <span id="reminder-count" class="task-count">0 alerts</span>
+        </div>
+
+        <ul id="reminder-list" class="reminder-list"></ul>
+        <p id="reminder-empty" class="empty-state">No reminder alerts right now.</p>
+      </section>
+
       <section class="card">
       <div class="brand-lockup">
         <div class="brand-logo">SINI</div>
