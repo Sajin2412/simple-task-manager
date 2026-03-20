@@ -157,6 +157,24 @@ async function loadTasks() {
   renderTasks();
 }
 
+function createTask(taskData) {
+  return {
+    id: crypto.randomUUID(),
+    title: taskData.title,
+    priority: taskData.priority || "Medium",
+    dueDate: taskData.dueDate || "",
+    dueTime: taskData.dueTime || "",
+    reminderEnabled: Boolean(taskData.reminderEnabled),
+    reminderSentAt: "",
+    description: taskData.description || "",
+    remark: taskData.remark || "",
+    hierarchy: taskData.hierarchy || "",
+    actionRemarks: Array.isArray(taskData.actionRemarks) ? taskData.actionRemarks.slice(0, 3) : [],
+    completed: false,
+    timeline: [createTimelineEntry(taskData.timelineText || "Task created")],
+  };
+}
+
 async function handleTaskSubmit(event) {
   event.preventDefault();
 
