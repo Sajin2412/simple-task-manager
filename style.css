@@ -26,6 +26,34 @@ body {
   border: 1px solid #e5e7eb;
 }
 
+.brand-lockup {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.brand-logo {
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #06b6d4 0%, #0f766e 100%);
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  box-shadow: 0 12px 24px rgba(6, 182, 212, 0.18);
+}
+
+.brand-tagline {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .auth-card {
   max-width: 560px;
   margin: 0 auto 20px;
