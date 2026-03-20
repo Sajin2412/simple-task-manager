@@ -69,6 +69,10 @@ body {
   margin-bottom: 20px;
 }
 
+.footer-card {
+  margin-top: 20px;
+}
+
 .status-row {
   display: flex;
   justify-content: space-between;
@@ -89,7 +93,7 @@ body {
 }
 
 .logout-button {
-  width: auto;
+  width: 100%;
 }
 
 h1,
