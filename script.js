@@ -190,8 +190,8 @@ async function handleTaskSubmit(event) {
     return;
   }
 
-  if (!dueDate || !dueTime || !description || !remark || !hierarchy || actionRemarks.length !== 3) {
-    showAppMessage("Please fill in all required fields, including all 3 action remarks.");
+  if (!dueDate || !dueTime || !description) {
+    showAppMessage("Please fill in all required fields.");
     return;
   }
 
