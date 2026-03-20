@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sajin Task Management</title>
+  <title>SINI Task Management</title>
   <meta name="theme-color" content="#06b6d4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Sajin Task Management">
+  <meta name="apple-mobile-web-app-title" content="SINI Task Management">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
@@ -19,7 +19,7 @@
         <div class="brand-logo">SINI</div>
         <p class="brand-tagline">Task System</p>
       </div>
-      <h1>Sajin Task Management</h1>
+      <h1>SINI Task Management</h1>
       <p class="subtitle">Sign up or log in to sync the same tasks on Mac and iPhone.</p>
 
       <form id="auth-form" class="task-form">
@@ -64,7 +64,7 @@
         <div class="brand-logo">SINI</div>
         <p class="brand-tagline">Task System</p>
       </div>
-      <h1>Sajin Task Management</h1>
+      <h1>SINI Task Management</h1>
       <p class="subtitle">A simple place to keep track of your tasks.</p>
 
       <form id="task-form" class="task-form">
@@ -90,14 +90,14 @@
 
           <label>
             Due date
-            <input id="task-due-date" type="date">
+            <input id="task-due-date" type="date" required>
           </label>
         </div>
 
         <div class="form-row">
           <label>
             Due time
-            <input id="task-due-time" type="time">
+            <input id="task-due-time" type="time" required>
           </label>
 
           <label class="checkbox-label">
@@ -115,6 +115,7 @@
             id="task-description"
             rows="4"
             placeholder="Write full details about this task"
+            required
           ></textarea>
         </label>
 
@@ -124,6 +125,7 @@
             id="task-remark"
             type="text"
             placeholder="Example: Check before Friday"
+            required
           >
         </label>
 
@@ -133,14 +135,15 @@
             id="task-hierarchy"
             type="text"
             placeholder="Example: Work > Accounts > Rent"
+            required
           >
         </label>
 
         <fieldset class="remarks-group">
           <legend>Action Remarks (up to 3)</legend>
-          <input id="task-action-remark-1" type="text" placeholder="Action remark 1">
-          <input id="task-action-remark-2" type="text" placeholder="Action remark 2">
-          <input id="task-action-remark-3" type="text" placeholder="Action remark 3">
+          <input id="task-action-remark-1" type="text" placeholder="Action remark 1" required>
+          <input id="task-action-remark-2" type="text" placeholder="Action remark 2" required>
+          <input id="task-action-remark-3" type="text" placeholder="Action remark 3" required>
         </fieldset>
 
         <button type="submit" class="primary-button">Add Task</button>
