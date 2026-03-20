@@ -8,6 +8,13 @@ const authMessage = document.getElementById("auth-message");
 const userEmail = document.getElementById("user-email");
 const appMessage = document.getElementById("app-message");
 const logoutButton = document.getElementById("logout-button");
+const summaryTotal = document.getElementById("summary-total");
+const summaryPending = document.getElementById("summary-pending");
+const summaryCompleted = document.getElementById("summary-completed");
+const summaryOverdue = document.getElementById("summary-overdue");
+const reminderCount = document.getElementById("reminder-count");
+const reminderList = document.getElementById("reminder-list");
+const reminderEmpty = document.getElementById("reminder-empty");
 
 const taskForm = document.getElementById("task-form");
 const taskTitleInput = document.getElementById("task-title");
@@ -230,6 +237,8 @@ async function handleTaskSubmit(event) {
 
 function renderTasks() {
   taskList.innerHTML = "";
+  renderSummary();
+  renderReminderCenter();
   const filteredTasks = getFilteredTasks();
 
   if (filteredTasks.length === 0) {
@@ -286,6 +295,12 @@ function renderTasks() {
       meta.appendChild(createBadge("badge reminder", "Reminder: 15 min before"));
     }
 
+    if (isTaskOverdue(task)) {
+      meta.appendChild(createBadge("badge overdue", "Overdue"));
+    } else if (isTaskDueSoon(task)) {
+      meta.appendChild(createBadge("badge upcoming", "Due soon"));
+    }
+
     if (task.hierarchy) {
       meta.appendChild(createBadge("badge hierarchy", `Hierarchy: ${task.hierarchy}`));
     }
@@ -321,6 +336,76 @@ function renderTasks() {
     listItem.appendChild(content);
     listItem.appendChild(actions);
     taskList.appendChild(listItem);
+  });
+}
+
+function renderSummary() {
+  const total = tasks.length;
+  const completed = tasks.filter(function (task) {
+    return task.completed;
+  }).length;
+  const pending = tasks.filter(function (task) {
+    return !task.completed;
+  }).length;
+  const overdue = tasks.filter(function (task) {
+    return isTaskOverdue(task);
+  }).length;
+
+  summaryTotal.textContent = String(total);
+  summaryPending.textContent = String(pending);
+  summaryCompleted.textContent = String(completed);
+  summaryOverdue.textContent = String(overdue);
+}
+
+function renderReminderCenter() {
+  reminderList.innerHTML = "";
+
+  const reminderTasks = tasks
+    .filter(function (task) {
+      return !task.completed && task.dueDate && task.dueTime;
+    })
+    .filter(function (task) {
+      return isTaskOverdue(task) || isTaskDueSoon(task);
+    })
+    .sort(function (firstTask, secondTask) {
+      return getTaskDeadline(firstTask).getTime() - getTaskDeadline(secondTask).getTime();
+    });
+
+  reminderCount.textContent = `${reminderTasks.length} alert${reminderTasks.length === 1 ? "" : "s"}`;
+
+  if (reminderTasks.length === 0) {
+    reminderEmpty.hidden = false;
+    return;
+  }
+
+  reminderEmpty.hidden = true;
+
+  reminderTasks.forEach(function (task) {
+    const item = document.createElement("li");
+    item.className = `reminder-item${isTaskOverdue(task) ? " overdue" : ""}`;
+
+    const content = document.createElement("div");
+
+    const title = document.createElement("p");
+    title.className = "reminder-title";
+    title.textContent = task.title;
+
+    const meta = document.createElement("p");
+    meta.className = "reminder-meta";
+    meta.textContent = `${formatDate(task.dueDate)} at ${formatTime(task.dueTime)}`;
+
+    content.appendChild(title);
+    content.appendChild(meta);
+
+    const status = document.createElement("span");
+    status.className = "reminder-status";
+    status.textContent = isTaskOverdue(task)
+      ? "Overdue"
+      : `Due in ${formatMinutesUntilDue(task)}`;
+
+    item.appendChild(content);
+    item.appendChild(status);
+    reminderList.appendChild(item);
   });
 }
 
@@ -925,6 +1010,54 @@ function shouldSendReminder(task, now) {
 
   const reminderTime = dueTime.getTime() - 15 * 60 * 1000;
   return now >= reminderTime && now < dueTime.getTime();
+}
+
+function isTaskOverdue(task) {
+  if (task.completed || !task.dueDate || !task.dueTime) {
+    return false;
+  }
+
+  const deadline = getTaskDeadline(task);
+  return Boolean(deadline && Date.now() > deadline.getTime());
+}
+
+function isTaskDueSoon(task) {
+  if (task.completed || !task.dueDate || !task.dueTime) {
+    return false;
+  }
+
+  const deadline = getTaskDeadline(task);
+
+  if (!deadline) {
+    return false;
+  }
+
+  const difference = deadline.getTime() - Date.now();
+  return difference > 0 && difference <= 60 * 60 * 1000;
+}
+
+function formatMinutesUntilDue(task) {
+  const deadline = getTaskDeadline(task);
+
+  if (!deadline) {
+    return "soon";
+  }
+
+  const difference = deadline.getTime() - Date.now();
+  const minutes = Math.max(1, Math.ceil(difference / 60000));
+
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours} hr ${remainingMinutes} min`;
 }
 
 function getTaskDeadline(task) {

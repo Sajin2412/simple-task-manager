@@ -69,6 +69,87 @@ body {
   margin-bottom: 20px;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  margin-bottom: 0;
+}
+
+.summary-alert {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #ffffff 0%, #fef2f2 100%);
+}
+
+.summary-label {
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.summary-value {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.reminder-card {
+  margin-bottom: 20px;
+}
+
+.reminder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.reminder-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f8fafc;
+  margin-bottom: 12px;
+}
+
+.reminder-item.overdue {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.reminder-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.reminder-meta {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.reminder-status {
+  white-space: nowrap;
+  font-weight: 700;
+  color: #0e7490;
+}
+
+.reminder-item.overdue .reminder-status {
+  color: #b91c1c;
+}
+
 .footer-card {
   margin-top: 20px;
 }
@@ -371,6 +452,16 @@ textarea {
   color: #0e7490;
 }
 
+.badge.overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge.upcoming {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 .details-block {
   margin-top: 12px;
   padding-top: 12px;
@@ -477,6 +568,10 @@ textarea {
     align-items: stretch;
   }
 
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .status-row {
     flex-direction: column;
     align-items: stretch;
@@ -494,6 +589,10 @@ textarea {
 
   .brand-tagline {
     text-align: center;
+  }
+
+  .reminder-item {
+    flex-direction: column;
   }
 
   .form-row {
