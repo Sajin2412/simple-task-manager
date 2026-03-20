@@ -179,21 +179,32 @@ async function handleTaskSubmit(event) {
   event.preventDefault();
 
   const title = taskTitleInput.value.trim();
+  const dueDate = taskDueDateInput.value.trim();
+  const dueTime = taskDueTimeInput.value.trim();
+  const description = taskDescriptionInput.value.trim();
+  const remark = taskRemarkInput.value.trim();
+  const hierarchy = taskHierarchyInput.value.trim();
+  const actionRemarks = collectActionRemarks();
 
   if (!title || !currentUser) {
+    return;
+  }
+
+  if (!dueDate || !dueTime || !description || !remark || !hierarchy || actionRemarks.length !== 3) {
+    showAppMessage("Please fill in all required fields, including all 3 action remarks.");
     return;
   }
 
   const newTask = createTask({
     title,
     priority: taskPriorityInput.value,
-    dueDate: taskDueDateInput.value,
-    dueTime: taskDueTimeInput.value,
+    dueDate,
+    dueTime,
     reminderEnabled: taskReminderEnabledInput.checked,
-    description: taskDescriptionInput.value.trim(),
-    remark: taskRemarkInput.value.trim(),
-    hierarchy: taskHierarchyInput.value.trim(),
-    actionRemarks: collectActionRemarks(),
+    description,
+    remark,
+    hierarchy,
+    actionRemarks,
     timelineText: "Task created",
   });
 
