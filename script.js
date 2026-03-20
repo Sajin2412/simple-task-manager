@@ -6,6 +6,7 @@ const authPasswordInput = document.getElementById("auth-password");
 const authModeSelect = document.getElementById("auth-mode");
 const authMessage = document.getElementById("auth-message");
 const userEmail = document.getElementById("user-email");
+const appMessage = document.getElementById("app-message");
 const logoutButton = document.getElementById("logout-button");
 
 const taskForm = document.getElementById("task-form");
@@ -74,6 +75,7 @@ async function applySession(session) {
     appSection.hidden = true;
     userEmail.textContent = "";
     tasks = [];
+    clearAppMessage();
     renderTasks();
     return;
   }
@@ -143,12 +145,14 @@ async function loadTasks() {
     .order("created_at", { ascending: false });
 
   if (result.error) {
+    showAppMessage(`Could not load tasks: ${result.error.message}`);
     emptyState.hidden = false;
     emptyState.textContent = "Could not load tasks. Please check Supabase setup.";
     return;
   }
 
   tasks = result.data.map(normalizeTask);
+  clearAppMessage();
   emptyState.textContent = "No tasks to show right now.";
   renderTasks();
 }
@@ -182,10 +186,12 @@ async function handleTaskSubmit(event) {
     .single();
 
   if (result.error) {
-    window.alert(result.error.message);
+    showAppMessage(`Could not add task: ${result.error.message}`);
+    window.alert(`Could not add task: ${result.error.message}`);
     return;
   }
 
+  clearAppMessage();
   tasks.unshift(normalizeTask(result.data));
   renderTasks();
   taskForm.reset();
@@ -498,7 +504,8 @@ async function saveTask(task) {
     .eq("id", task.id);
 
   if (result.error) {
-    window.alert(result.error.message);
+    showAppMessage(`Could not update task: ${result.error.message}`);
+    window.alert(`Could not update task: ${result.error.message}`);
   }
 }
 
@@ -506,10 +513,12 @@ async function deleteTask(taskId) {
   const result = await supabaseClient.from("tasks").delete().eq("id", taskId);
 
   if (result.error) {
-    window.alert(result.error.message);
+    showAppMessage(`Could not delete task: ${result.error.message}`);
+    window.alert(`Could not delete task: ${result.error.message}`);
     return;
   }
 
+  clearAppMessage();
   tasks = tasks.filter(function (task) {
     return task.id !== taskId;
   });
@@ -560,10 +569,12 @@ function importCsvFile(file) {
       .select();
 
     if (result.error) {
-      window.alert(result.error.message);
+      showAppMessage(`Could not import tasks: ${result.error.message}`);
+      window.alert(`Could not import tasks: ${result.error.message}`);
       return;
     }
 
+    clearAppMessage();
     tasks = result.data.map(normalizeTask).concat(tasks);
     renderTasks();
     window.alert(`${result.data.length} tasks imported successfully.`);
@@ -913,6 +924,16 @@ function sendTaskReminder(task) {
   }
 
   new Notification("Task Reminder", { body });
+}
+
+function showAppMessage(message) {
+  appMessage.textContent = message;
+  appMessage.hidden = false;
+}
+
+function clearAppMessage() {
+  appMessage.textContent = "";
+  appMessage.hidden = true;
 }
 
 if ("serviceWorker" in navigator) {
