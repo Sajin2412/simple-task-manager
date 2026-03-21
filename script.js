@@ -12,6 +12,7 @@ const summaryTotal = document.getElementById("summary-total");
 const summaryPending = document.getElementById("summary-pending");
 const summaryCompleted = document.getElementById("summary-completed");
 const summaryOverdue = document.getElementById("summary-overdue");
+const exportReportButton = document.getElementById("export-report-button");
 const reminderCount = document.getElementById("reminder-count");
 const reminderList = document.getElementById("reminder-list");
 const reminderEmpty = document.getElementById("reminder-empty");
@@ -60,6 +61,7 @@ async function initializeApp() {
     activeFilter = taskFilter.value;
     renderTasks();
   });
+  exportReportButton.addEventListener("click", exportTaskReport);
   enableRemindersButton.addEventListener("click", requestNotificationPermission);
   csvImportInput.addEventListener("change", handleCsvImport);
 
@@ -423,6 +425,71 @@ function renderReminderCenter() {
   });
 }
 
+function exportTaskReport() {
+  const now = new Date();
+  const reportDate = now.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const total = tasks.length;
+  const completed = tasks.filter(function (task) {
+    return task.completed;
+  }).length;
+  const pending = tasks.filter(function (task) {
+    return !task.completed;
+  }).length;
+  const overdue = tasks.filter(function (task) {
+    return isTaskOverdue(task);
+  }).length;
+
+  const lines = [
+    "SINI Task Management Report",
+    `Generated: ${reportDate}`,
+    "",
+    "Dashboard Summary",
+    `Total Tasks: ${total}`,
+    `Pending: ${pending}`,
+    `Completed: ${completed}`,
+    `Overdue: ${overdue}`,
+    "",
+    "Task Details",
+  ];
+
+  if (tasks.length === 0) {
+    lines.push("No tasks available.");
+  } else {
+    tasks.forEach(function (task, index) {
+      lines.push("");
+      lines.push(`${index + 1}. ${task.title}`);
+      lines.push(`Status: ${task.completed ? "Completed" : "Pending"}`);
+      lines.push(`Priority: ${task.priority}`);
+      lines.push(`Due: ${formatReportDueLine(task)}`);
+      lines.push(`Reminder: ${task.reminderEnabled ? "15 minutes before deadline" : "Off"}`);
+      lines.push(`Description: ${task.description || "No description added."}`);
+      lines.push(`Remark: ${task.remark || "No remark added."}`);
+      lines.push(`Hierarchy: ${task.hierarchy || "No hierarchy added."}`);
+      lines.push(
+        `Action Remarks: ${task.actionRemarks.length > 0 ? task.actionRemarks.join(" | ") : "No action remarks added."}`
+      );
+      lines.push(
+        `Latest Timeline: ${task.timeline.length > 0 ? formatTimelineEntry(task.timeline[0]) : "No timeline record."}`
+      );
+    });
+  }
+
+  const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const downloadLink = document.createElement("a");
+  const fileDate = buildFileDate(now);
+
+  downloadLink.href = url;
+  downloadLink.download = `sini-task-report-${fileDate}.txt`;
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+  URL.revokeObjectURL(url);
+}
+
 function renderDetailsBlock(task) {
   const details = document.createElement("div");
   details.className = "details-block";
@@ -755,6 +822,28 @@ function createBadge(className, text) {
   badge.className = className;
   badge.textContent = text;
   return badge;
+}
+
+function formatReportDueLine(task) {
+  if (!task.dueDate) {
+    return "No due date";
+  }
+
+  return `${formatDate(task.dueDate)}${task.dueTime ? ` at ${formatTime(task.dueTime)}` : ""}`;
+}
+
+function formatTimelineEntry(entry) {
+  return `${entry.text} - ${formatTimelineTime(entry.time)}`;
+}
+
+function buildFileDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}-${hours}${minutes}`;
 }
 
 function getFilteredTasks() {
