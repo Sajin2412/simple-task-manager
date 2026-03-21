@@ -321,6 +321,19 @@ function renderTasks() {
       editTask(task.id);
     });
 
+    const completeButton = document.createElement("button");
+    completeButton.type = "button";
+    completeButton.className = "edit-button";
+    completeButton.textContent = task.completed ? "Mark Active" : "Complete";
+    completeButton.addEventListener("click", async function () {
+      task.completed = !task.completed;
+      task.timeline.unshift(
+        createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active")
+      );
+      await saveTask(task);
+      renderTasks();
+    });
+
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "delete-button";
@@ -330,6 +343,7 @@ function renderTasks() {
     });
 
     actions.appendChild(editButton);
+    actions.appendChild(completeButton);
     actions.appendChild(deleteButton);
 
     listItem.appendChild(checkbox);
@@ -1061,7 +1075,27 @@ function formatMinutesUntilDue(task) {
 }
 
 function getTaskDeadline(task) {
-  const deadline = new Date(`${task.dueDate}T${task.dueTime}:00`);
+  const dateParts = task.dueDate.split("-").map(function (value) {
+    return Number(value);
+  });
+  const timeParts = task.dueTime.split(":").map(function (value) {
+    return Number(value);
+  });
+
+  if (dateParts.length !== 3 || timeParts.length < 2) {
+    return null;
+  }
+
+  const deadline = new Date(
+    dateParts[0],
+    dateParts[1] - 1,
+    dateParts[2],
+    timeParts[0],
+    timeParts[1],
+    0,
+    0
+  );
+
   if (Number.isNaN(deadline.getTime())) {
     return null;
   }
