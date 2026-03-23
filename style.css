@@ -704,15 +704,20 @@ textarea {
   .brand-lockup {
     width: 100%;
     align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .brand-logo {
-    width: 100%;
-    text-align: center;
+    width: auto;
+    margin: 0 auto;
+    justify-content: center;
   }
 
   .brand-tagline {
     text-align: center;
+    width: 100%;
   }
 
   .reminder-item {
