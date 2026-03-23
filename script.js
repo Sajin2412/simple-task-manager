@@ -20,6 +20,7 @@ const taskConfirmModal = document.getElementById("task-confirm-modal");
 const taskConfirmSummary = document.getElementById("task-confirm-summary");
 const taskConfirmCancelButton = document.getElementById("task-confirm-cancel");
 const taskConfirmSaveButton = document.getElementById("task-confirm-save");
+const taskConfirmCloseButton = document.getElementById("task-confirm-close");
 
 const taskForm = document.getElementById("task-form");
 const taskTitleInput = document.getElementById("task-title");
@@ -69,6 +70,7 @@ async function initializeApp() {
   exportReportButton.addEventListener("click", exportTaskReport);
   taskConfirmCancelButton.addEventListener("click", closeTaskConfirmModal);
   taskConfirmSaveButton.addEventListener("click", savePendingTask);
+  taskConfirmCloseButton.addEventListener("click", closeTaskConfirmModal);
   taskConfirmModal.addEventListener("click", function (event) {
     if (event.target === taskConfirmModal) {
       closeTaskConfirmModal();

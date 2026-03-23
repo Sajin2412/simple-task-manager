@@ -600,6 +600,7 @@ textarea {
 }
 
 .modal-card {
+  position: relative;
   width: min(560px, 100%);
   max-height: min(80vh, 720px);
   overflow-y: auto;
@@ -612,6 +613,24 @@ textarea {
 
 .modal-subtitle {
   margin-bottom: 16px;
+}
+
+.modal-close-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modal-close-button:hover {
+  background: #cbd5e1;
 }
 
 .confirm-summary {
