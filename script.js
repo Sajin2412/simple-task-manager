@@ -427,10 +427,6 @@ function renderReminderCenter() {
 
 function exportTaskReport() {
   const now = new Date();
-  const reportDate = now.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
   const total = tasks.length;
   const completed = tasks.filter(function (task) {
     return task.completed;
@@ -441,49 +437,107 @@ function exportTaskReport() {
   const overdue = tasks.filter(function (task) {
     return isTaskOverdue(task);
   }).length;
+  const summaryRow = `
+    <tr>
+      <td>${escapeHtml(formatExportDateTime(now))}</td>
+      <td>${escapeHtml(String(total))}</td>
+      <td>${escapeHtml(String(pending))}</td>
+      <td>${escapeHtml(String(completed))}</td>
+      <td>${escapeHtml(String(overdue))}</td>
+    </tr>
+  `;
 
-  const lines = [
-    "SINI Task Management Report",
-    `Generated: ${reportDate}`,
-    "",
-    "Dashboard Summary",
-    `Total Tasks: ${total}`,
-    `Pending: ${pending}`,
-    `Completed: ${completed}`,
-    `Overdue: ${overdue}`,
-    "",
-    "Task Details",
-  ];
+  const taskRows = tasks.length === 0
+    ? `
+      <tr>
+        <td colspan="12">No tasks available.</td>
+      </tr>
+    `
+    : tasks.map(function (task, index) {
+      return `
+        <tr>
+          <td>${escapeHtml(String(index + 1))}</td>
+          <td>${escapeHtml(task.title)}</td>
+          <td>${escapeHtml(task.completed ? "Completed" : "Pending")}</td>
+          <td>${escapeHtml(task.priority)}</td>
+          <td>${escapeHtml(task.dueDate ? formatDate(task.dueDate) : "")}</td>
+          <td>${escapeHtml(task.dueTime ? formatTime(task.dueTime) : "")}</td>
+          <td>${escapeHtml(task.reminderEnabled ? "15 minutes before deadline" : "Off")}</td>
+          <td>${escapeHtml(task.description || "No description added.")}</td>
+          <td>${escapeHtml(task.remark || "No remark added.")}</td>
+          <td>${escapeHtml(task.hierarchy || "No hierarchy added.")}</td>
+          <td>${escapeHtml(task.actionRemarks.length > 0 ? task.actionRemarks.join(" | ") : "No action remarks added.")}</td>
+          <td>${escapeHtml(task.timeline.length > 0 ? formatTimelineEntry(task.timeline[0]) : "No timeline record.")}</td>
+        </tr>
+      `;
+    }).join("");
 
-  if (tasks.length === 0) {
-    lines.push("No tasks available.");
-  } else {
-    tasks.forEach(function (task, index) {
-      lines.push("");
-      lines.push(`${index + 1}. ${task.title}`);
-      lines.push(`Status: ${task.completed ? "Completed" : "Pending"}`);
-      lines.push(`Priority: ${task.priority}`);
-      lines.push(`Due: ${formatReportDueLine(task)}`);
-      lines.push(`Reminder: ${task.reminderEnabled ? "15 minutes before deadline" : "Off"}`);
-      lines.push(`Description: ${task.description || "No description added."}`);
-      lines.push(`Remark: ${task.remark || "No remark added."}`);
-      lines.push(`Hierarchy: ${task.hierarchy || "No hierarchy added."}`);
-      lines.push(
-        `Action Remarks: ${task.actionRemarks.length > 0 ? task.actionRemarks.join(" | ") : "No action remarks added."}`
-      );
-      lines.push(
-        `Latest Timeline: ${task.timeline.length > 0 ? formatTimelineEntry(task.timeline[0]) : "No timeline record."}`
-      );
-    });
-  }
+  const workbook = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="ProgId" content="Excel.Sheet">
+        <meta name="Generator" content="SINI Task Management">
+        <style>
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+          th { background: #cffafe; font-weight: 700; }
+          .sheet-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+          .section-title { font-size: 14px; font-weight: 700; color: #0e7490; margin: 18px 0 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="sheet-title">SINI Task Management Report</div>
+        <div class="section-title">Dashboard Summary</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Report Generated At</th>
+              <th>Total Tasks</th>
+              <th>Pending Tasks</th>
+              <th>Completed Tasks</th>
+              <th>Overdue Tasks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summaryRow}
+          </tbody>
+        </table>
+        <div class="section-title">Task Details</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Task Number</th>
+              <th>Task Name</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Due Date</th>
+              <th>Due Time</th>
+              <th>Reminder</th>
+              <th>Description</th>
+              <th>Remark</th>
+              <th>Hierarchy</th>
+              <th>Action Remarks</th>
+              <th>Latest Timeline</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${taskRows}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
 
-  const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+  const blob = new Blob([`\uFEFF${workbook}`], { type: "application/vnd.ms-excel;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const downloadLink = document.createElement("a");
   const fileDate = buildFileDate(now);
 
   downloadLink.href = url;
-  downloadLink.download = `sini-task-report-${fileDate}.txt`;
+  downloadLink.download = `sini-task-report-${fileDate}.xls`;
   document.body.appendChild(downloadLink);
   downloadLink.click();
   document.body.removeChild(downloadLink);
@@ -834,6 +888,23 @@ function formatReportDueLine(task) {
 
 function formatTimelineEntry(entry) {
   return `${entry.text} - ${formatTimelineTime(entry.time)}`;
+}
+
+function formatExportDateTime(date) {
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function escapeHtml(value) {
+  const text = String(value ?? "");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function buildFileDate(date) {
