@@ -69,6 +69,16 @@ async function initializeApp() {
   exportReportButton.addEventListener("click", exportTaskReport);
   taskConfirmCancelButton.addEventListener("click", closeTaskConfirmModal);
   taskConfirmSaveButton.addEventListener("click", savePendingTask);
+  taskConfirmModal.addEventListener("click", function (event) {
+    if (event.target === taskConfirmModal) {
+      closeTaskConfirmModal();
+    }
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !taskConfirmModal.hidden) {
+      closeTaskConfirmModal();
+    }
+  });
   enableRemindersButton.addEventListener("click", requestNotificationPermission);
   csvImportInput.addEventListener("change", handleCsvImport);
 
@@ -87,6 +97,7 @@ async function applySession(session) {
   currentUser = session ? session.user : null;
 
   if (!currentUser) {
+    closeTaskConfirmModal();
     authSection.hidden = false;
     appSection.hidden = true;
     userEmail.textContent = "";
@@ -450,6 +461,7 @@ function openTaskConfirmModal(task) {
 
 function closeTaskConfirmModal() {
   pendingTaskDraft = null;
+  taskConfirmSummary.innerHTML = "";
   taskConfirmModal.hidden = true;
 }
 
