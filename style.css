@@ -599,6 +599,10 @@ textarea {
   z-index: 1000;
 }
 
+.modal-overlay[hidden] {
+  display: none !important;
+}
+
 .modal-card {
   position: relative;
   width: min(560px, 100%);

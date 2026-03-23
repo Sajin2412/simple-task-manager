@@ -53,6 +53,8 @@ let pendingTaskDraft = null;
 initializeApp();
 
 async function initializeApp() {
+  closeTaskConfirmModal();
+
   if (!supabaseUrl || !supabaseAnonKey || !window.supabase) {
     authMessage.textContent = "Supabase is not configured yet. Follow the README setup steps first.";
     return;
@@ -117,6 +119,7 @@ async function applySession(session) {
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
+  closeTaskConfirmModal();
 
   if (!supabaseClient) {
     return;
