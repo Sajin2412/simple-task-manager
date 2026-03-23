@@ -16,6 +16,10 @@ const exportReportButton = document.getElementById("export-report-button");
 const reminderCount = document.getElementById("reminder-count");
 const reminderList = document.getElementById("reminder-list");
 const reminderEmpty = document.getElementById("reminder-empty");
+const taskConfirmModal = document.getElementById("task-confirm-modal");
+const taskConfirmSummary = document.getElementById("task-confirm-summary");
+const taskConfirmCancelButton = document.getElementById("task-confirm-cancel");
+const taskConfirmSaveButton = document.getElementById("task-confirm-save");
 
 const taskForm = document.getElementById("task-form");
 const taskTitleInput = document.getElementById("task-title");
@@ -43,6 +47,7 @@ let supabaseClient = null;
 let currentUser = null;
 let tasks = [];
 let activeFilter = "all";
+let pendingTaskDraft = null;
 
 initializeApp();
 
@@ -62,6 +67,8 @@ async function initializeApp() {
     renderTasks();
   });
   exportReportButton.addEventListener("click", exportTaskReport);
+  taskConfirmCancelButton.addEventListener("click", closeTaskConfirmModal);
+  taskConfirmSaveButton.addEventListener("click", savePendingTask);
   enableRemindersButton.addEventListener("click", requestNotificationPermission);
   csvImportInput.addEventListener("change", handleCsvImport);
 
@@ -216,25 +223,7 @@ async function handleTaskSubmit(event) {
     actionRemarks,
     timelineText: "Task created",
   });
-
-  const result = await supabaseClient
-    .from("tasks")
-    .insert(prepareTaskForDatabase(newTask))
-    .select()
-    .single();
-
-  if (result.error) {
-    showAppMessage(`Could not add task: ${result.error.message}`);
-    window.alert(`Could not add task: ${result.error.message}`);
-    return;
-  }
-
-  clearAppMessage();
-  tasks.unshift(normalizeTask(result.data));
-  renderTasks();
-  taskForm.reset();
-  taskPriorityInput.value = "Medium";
-  taskTitleInput.focus();
+  openTaskConfirmModal(newTask);
 }
 
 function renderTasks() {
@@ -423,6 +412,71 @@ function renderReminderCenter() {
     item.appendChild(status);
     reminderList.appendChild(item);
   });
+}
+
+function openTaskConfirmModal(task) {
+  pendingTaskDraft = task;
+  taskConfirmSummary.innerHTML = "";
+
+  [
+    ["Task Name", task.title],
+    ["Priority", task.priority],
+    ["Due Date", task.dueDate ? formatDate(task.dueDate) : "Not set"],
+    ["Due Time", task.dueTime ? formatTime(task.dueTime) : "Not set"],
+    ["Reminder", task.reminderEnabled ? "15 minutes before deadline" : "Off"],
+    ["Description", task.description || "No description added."],
+    ["Remark", task.remark || "No remark added."],
+    ["Hierarchy", task.hierarchy || "No hierarchy added."],
+    ["Action Remarks", task.actionRemarks.length > 0 ? task.actionRemarks.join("\n") : "No action remarks added."],
+  ].forEach(function (entry) {
+    const row = document.createElement("div");
+    row.className = "confirm-row";
+
+    const label = document.createElement("p");
+    label.className = "confirm-label";
+    label.textContent = entry[0];
+
+    const value = document.createElement("p");
+    value.className = "confirm-value";
+    value.textContent = entry[1];
+
+    row.appendChild(label);
+    row.appendChild(value);
+    taskConfirmSummary.appendChild(row);
+  });
+
+  taskConfirmModal.hidden = false;
+}
+
+function closeTaskConfirmModal() {
+  pendingTaskDraft = null;
+  taskConfirmModal.hidden = true;
+}
+
+async function savePendingTask() {
+  if (!pendingTaskDraft || !supabaseClient) {
+    return;
+  }
+
+  const result = await supabaseClient
+    .from("tasks")
+    .insert(prepareTaskForDatabase(pendingTaskDraft))
+    .select()
+    .single();
+
+  if (result.error) {
+    showAppMessage(`Could not add task: ${result.error.message}`);
+    window.alert(`Could not add task: ${result.error.message}`);
+    return;
+  }
+
+  clearAppMessage();
+  tasks.unshift(normalizeTask(result.data));
+  renderTasks();
+  taskForm.reset();
+  taskPriorityInput.value = "Medium";
+  taskTitleInput.focus();
+  closeTaskConfirmModal();
 }
 
 function exportTaskReport() {

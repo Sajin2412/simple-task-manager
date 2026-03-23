@@ -255,6 +255,20 @@
     </section>
   </main>
 
+  <div id="task-confirm-modal" class="modal-overlay" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="task-confirm-title">
+      <h2 id="task-confirm-title">Confirm New Task</h2>
+      <p class="subtitle modal-subtitle">Please check the task summary before saving.</p>
+
+      <div id="task-confirm-summary" class="confirm-summary"></div>
+
+      <div class="modal-actions">
+        <button id="task-confirm-cancel" type="button" class="edit-button">Cancel</button>
+        <button id="task-confirm-save" type="button" class="primary-button">Save Task</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="script.js"></script>
