@@ -550,7 +550,7 @@ function exportTaskReport() {
       <head>
         <meta charset="UTF-8">
         <meta name="ProgId" content="Excel.Sheet">
-        <meta name="Generator" content="SINI Task Management">
+        <meta name="Generator" content="Sajin Task Management">
         <style>
           table { border-collapse: collapse; width: 100%; }
           th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
@@ -560,7 +560,7 @@ function exportTaskReport() {
         </style>
       </head>
       <body>
-        <div class="sheet-title">SINI Task Management Report</div>
+        <div class="sheet-title">Sajin Task Management Report</div>
         <div class="section-title">Dashboard Summary</div>
         <table>
           <thead>

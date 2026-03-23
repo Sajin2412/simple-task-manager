@@ -1,6 +1,6 @@
 {
-  "name": "SINI Task Management",
-  "short_name": "SINI Tasks",
+  "name": "Sajin Task Management",
+  "short_name": "Sajin Tasks",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f9fafb",
