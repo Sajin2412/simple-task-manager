@@ -16,6 +16,11 @@ const exportReportButton = document.getElementById("export-report-button");
 const reminderCount = document.getElementById("reminder-count");
 const reminderList = document.getElementById("reminder-list");
 const reminderEmpty = document.getElementById("reminder-empty");
+const focusCount = document.getElementById("focus-count");
+const focusList = document.getElementById("focus-list");
+const focusEmpty = document.getElementById("focus-empty");
+const focusProgressLabel = document.getElementById("focus-progress-label");
+const focusProgressBar = document.getElementById("focus-progress-bar");
 const taskConfirmModal = document.getElementById("task-confirm-modal");
 const taskConfirmSummary = document.getElementById("task-confirm-summary");
 const taskConfirmCancelButton = document.getElementById("task-confirm-cancel");
@@ -52,6 +57,7 @@ let tasks = [];
 let activeFilter = "all";
 let activeSearchTerm = "";
 let activeSort = "newest";
+let pinnedFocusTaskIds = [];
 let pendingTaskDraft = null;
 
 initializeApp();
@@ -118,6 +124,7 @@ async function applySession(session) {
     appSection.hidden = true;
     userEmail.textContent = "";
     tasks = [];
+    pinnedFocusTaskIds = [];
     clearAppMessage();
     renderTasks();
     return;
@@ -126,6 +133,7 @@ async function applySession(session) {
   authSection.hidden = true;
   appSection.hidden = false;
   userEmail.textContent = currentUser.email || "";
+  loadPinnedFocusTasks();
   await loadTasks();
 }
 
@@ -259,6 +267,7 @@ function renderTasks() {
   taskList.innerHTML = "";
   renderSummary();
   renderReminderCenter();
+  renderFocusSection();
   const filteredTasks = getVisibleTasks();
 
   if (filteredTasks.length === 0) {
@@ -370,6 +379,117 @@ function renderTasks() {
     listItem.appendChild(content);
     listItem.appendChild(actions);
     taskList.appendChild(listItem);
+  });
+}
+
+function renderFocusSection() {
+  focusList.innerHTML = "";
+
+  const focusTasks = getFocusTasks();
+  const completedFocusTasks = focusTasks.filter(function (task) {
+    return task.completed;
+  }).length;
+  const focusPercent = focusTasks.length === 0
+    ? 0
+    : Math.round((completedFocusTasks / focusTasks.length) * 100);
+
+  focusCount.textContent = `${focusTasks.length} focus task${focusTasks.length === 1 ? "" : "s"}`;
+  focusProgressLabel.textContent = `${completedFocusTasks} of ${focusTasks.length} done`;
+  focusProgressBar.style.width = `${focusPercent}%`;
+
+  if (focusTasks.length === 0) {
+    focusEmpty.hidden = false;
+    return;
+  }
+
+  focusEmpty.hidden = true;
+
+  focusTasks.forEach(function (task) {
+    const item = document.createElement("li");
+    item.className = `focus-item${isTaskOverdue(task) ? " overdue" : ""}${task.completed ? " completed" : ""}`;
+
+    const head = document.createElement("div");
+    head.className = "focus-item-head";
+
+    const content = document.createElement("div");
+
+    const title = document.createElement("p");
+    title.className = "focus-title";
+    title.textContent = task.title;
+
+    const meta = document.createElement("p");
+    meta.className = "focus-meta";
+    meta.textContent = buildFocusMeta(task);
+
+    const badges = document.createElement("div");
+    badges.className = "task-meta";
+    badges.appendChild(createBadge(`badge priority-${task.priority.toLowerCase()}`, `${task.priority} Priority`));
+
+    if (isTaskOverdue(task)) {
+      badges.appendChild(createBadge("badge overdue", "Overdue"));
+    } else if (isTaskDueToday(task)) {
+      badges.appendChild(createBadge("badge upcoming", "Due Today"));
+    }
+
+    if (isTaskPinned(task)) {
+      badges.appendChild(createBadge("badge reminder", "Pinned"));
+    }
+
+    if (hasStartedWork(task)) {
+      badges.appendChild(createBadge("badge focus-started", "Started"));
+    }
+
+    content.appendChild(title);
+    content.appendChild(meta);
+    content.appendChild(badges);
+
+    const actions = document.createElement("div");
+    actions.className = "focus-actions";
+
+    actions.appendChild(createFocusActionButton(
+      isTaskPinned(task) ? "Unpin" : "Pin to Focus",
+      "edit-button focus-button focus-pin-button",
+      function () {
+        toggleFocusPin(task.id);
+      }
+    ));
+
+    actions.appendChild(createFocusActionButton(
+      "Start Work",
+      "edit-button focus-button",
+      function () {
+        startWorkOnTask(task.id);
+      }
+    ));
+
+    actions.appendChild(createFocusActionButton(
+      "+15 min",
+      "edit-button focus-button",
+      function () {
+        postponeTask(task.id, 15);
+      }
+    ));
+
+    actions.appendChild(createFocusActionButton(
+      "Tomorrow",
+      "edit-button focus-button",
+      function () {
+        moveTaskToDayOffset(task.id, 1);
+      }
+    ));
+
+    actions.appendChild(createFocusActionButton(
+      "Next Week",
+      "edit-button focus-button",
+      function () {
+        moveTaskToDayOffset(task.id, 7);
+      }
+    ));
+
+    head.appendChild(content);
+    head.appendChild(actions);
+    item.appendChild(head);
+    focusList.appendChild(item);
   });
 }
 
@@ -855,6 +975,10 @@ async function deleteTask(taskId) {
   tasks = tasks.filter(function (task) {
     return task.id !== taskId;
   });
+  pinnedFocusTaskIds = pinnedFocusTaskIds.filter(function (id) {
+    return id !== taskId;
+  });
+  persistPinnedFocusTaskIds();
   renderTasks();
 }
 
@@ -1047,6 +1171,14 @@ function buildTaskCountText(visibleCount) {
   return `${visibleCount} of ${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
 }
 
+function getFocusTasks() {
+  return tasks
+    .filter(function (task) {
+      return isTaskInFocus(task);
+    })
+    .sort(compareFocusTasks);
+}
+
 function collectActionRemarks() {
   return [
     taskActionRemark1Input.value.trim(),
@@ -1099,6 +1231,10 @@ function normalizeTask(task) {
       ? task.timeline
       : [createTimelineEntry("Task record created")],
   };
+}
+
+function loadPinnedFocusTasks() {
+  pinnedFocusTaskIds = readPinnedFocusTaskIds();
 }
 
 function createTaskBaseTime() {
@@ -1207,6 +1343,184 @@ function getTaskCreatedTime(task) {
   return Number.isNaN(createdTime) ? 0 : createdTime;
 }
 
+function compareFocusTasks(firstTask, secondTask) {
+  if (firstTask.completed !== secondTask.completed) {
+    return firstTask.completed ? 1 : -1;
+  }
+
+  if (isTaskOverdue(firstTask) !== isTaskOverdue(secondTask)) {
+    return isTaskOverdue(firstTask) ? -1 : 1;
+  }
+
+  if (isTaskPinned(firstTask) !== isTaskPinned(secondTask)) {
+    return isTaskPinned(firstTask) ? -1 : 1;
+  }
+
+  return compareDeadline(firstTask, secondTask, "asc");
+}
+
+function isTaskInFocus(task) {
+  return isTaskPinned(task) || isTaskOverdue(task) || isTaskDueToday(task);
+}
+
+function isTaskPinned(task) {
+  return pinnedFocusTaskIds.includes(task.id);
+}
+
+function isTaskDueToday(task) {
+  if (!task.dueDate || task.completed) {
+    return false;
+  }
+
+  const today = new Date();
+  const todayKey = buildDateInputValue(today);
+  return task.dueDate === todayKey;
+}
+
+function hasStartedWork(task) {
+  return task.timeline.some(function (entry) {
+    return entry.text === "Started work on task";
+  });
+}
+
+function buildFocusMeta(task) {
+  const dueLine = task.dueDate
+    ? `Due ${formatDate(task.dueDate)}${task.dueTime ? ` at ${formatTime(task.dueTime)}` : ""}`
+    : "No due date yet";
+
+  if (task.completed) {
+    return `${dueLine} • Completed`;
+  }
+
+  if (isTaskOverdue(task)) {
+    return `${dueLine} • Past deadline`;
+  }
+
+  if (isTaskDueToday(task)) {
+    return `${dueLine} • Planned for today`;
+  }
+
+  if (isTaskPinned(task)) {
+    return `${dueLine} • Manually pinned`;
+  }
+
+  return dueLine;
+}
+
+function createFocusActionButton(text, className, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = text;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function toggleFocusPin(taskId) {
+  if (pinnedFocusTaskIds.includes(taskId)) {
+    pinnedFocusTaskIds = pinnedFocusTaskIds.filter(function (id) {
+      return id !== taskId;
+    });
+  } else {
+    pinnedFocusTaskIds = [taskId].concat(pinnedFocusTaskIds);
+  }
+
+  persistPinnedFocusTaskIds();
+  renderTasks();
+}
+
+async function startWorkOnTask(taskId) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
+  });
+
+  if (!task) {
+    return;
+  }
+
+  task.timeline.unshift(createTimelineEntry("Started work on task"));
+  await saveTask(task);
+  renderTasks();
+}
+
+async function postponeTask(taskId, minuteOffset) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
+  });
+
+  if (!task) {
+    return;
+  }
+
+  const baseDate = getTaskDeadline(task) || new Date();
+  const nextDate = new Date(baseDate.getTime() + minuteOffset * 60000);
+  updateTaskDeadline(task, nextDate, `Postponed by ${minuteOffset} minutes`);
+  await saveTask(task);
+  renderTasks();
+}
+
+async function moveTaskToDayOffset(taskId, dayOffset) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
+  });
+
+  if (!task) {
+    return;
+  }
+
+  const baseDate = getTaskDeadline(task) || new Date();
+  const nextDate = new Date(baseDate);
+  nextDate.setDate(nextDate.getDate() + dayOffset);
+  updateTaskDeadline(task, nextDate, dayOffset === 1 ? "Moved to tomorrow" : "Moved to next week");
+  await saveTask(task);
+  renderTasks();
+}
+
+function updateTaskDeadline(task, nextDate, timelineText) {
+  task.dueDate = buildDateInputValue(nextDate);
+  task.dueTime = buildTimeInputValue(nextDate);
+  task.reminderSentAt = "";
+  task.timeline.unshift(createTimelineEntry(timelineText));
+}
+
+function readPinnedFocusTaskIds() {
+  const storageKey = getPinnedFocusStorageKey();
+
+  if (!storageKey) {
+    return [];
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(storageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function persistPinnedFocusTaskIds() {
+  const storageKey = getPinnedFocusStorageKey();
+
+  if (!storageKey) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(pinnedFocusTaskIds));
+  } catch (_error) {
+    return;
+  }
+}
+
+function getPinnedFocusStorageKey() {
+  if (!currentUser || !currentUser.id) {
+    return "";
+  }
+
+  return `sajin-focus-pins-${currentUser.id}`;
+}
+
 function parseActionRemarks(value) {
   return value
     .split(",")
@@ -1249,6 +1563,19 @@ function formatTime(timeString) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function buildDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildTimeInputValue(date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function formatTimelineTime(timeValue) {

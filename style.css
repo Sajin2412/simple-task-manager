@@ -116,6 +116,125 @@ body {
   margin-bottom: 20px;
 }
 
+.focus-card {
+  margin-bottom: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(6, 182, 212, 0.12), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f0fdfa 100%);
+}
+
+.focus-toolbar {
+  align-items: center;
+}
+
+.focus-header {
+  align-items: flex-start;
+}
+
+.focus-subtitle {
+  margin: 8px 0 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.focus-progress {
+  min-width: 220px;
+}
+
+.focus-progress-label {
+  margin: 0 0 8px;
+  color: #0f766e;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.focus-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #ccfbf1;
+  overflow: hidden;
+}
+
+.focus-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #06b6d4 0%, #0f766e 100%);
+}
+
+.focus-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.focus-item {
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  margin-bottom: 12px;
+}
+
+.focus-item.overdue {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #ffffff 0%, #fef2f2 100%);
+}
+
+.focus-item.completed {
+  opacity: 0.75;
+}
+
+.focus-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.focus-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.focus-meta {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.focus-button {
+  min-width: auto;
+  padding: 9px 12px;
+}
+
+.focus-pin-button {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.focus-pin-button:hover {
+  background: #99f6e4;
+}
+
+.focus-started {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 .reminder-list {
   list-style: none;
   padding: 0;
@@ -695,6 +814,22 @@ textarea {
   .summary-toolbar .list-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .focus-toolbar {
+    align-items: stretch;
+  }
+
+  .focus-progress {
+    min-width: 0;
+  }
+
+  .focus-progress-label {
+    text-align: left;
+  }
+
+  .focus-item-head {
+    flex-direction: column;
   }
 
   .status-row {
