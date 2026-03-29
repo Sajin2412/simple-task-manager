@@ -445,46 +445,7 @@ function renderFocusSection() {
 
     const actions = document.createElement("div");
     actions.className = "focus-actions";
-
-    actions.appendChild(createFocusActionButton(
-      isTaskPinned(task) ? "Unpin" : "Pin to Focus",
-      "edit-button focus-button focus-pin-button",
-      function () {
-        toggleFocusPin(task.id);
-      }
-    ));
-
-    actions.appendChild(createFocusActionButton(
-      "Start Work",
-      "edit-button focus-button",
-      function () {
-        startWorkOnTask(task.id);
-      }
-    ));
-
-    actions.appendChild(createFocusActionButton(
-      "+15 min",
-      "edit-button focus-button",
-      function () {
-        postponeTask(task.id, 15);
-      }
-    ));
-
-    actions.appendChild(createFocusActionButton(
-      "Tomorrow",
-      "edit-button focus-button",
-      function () {
-        moveTaskToDayOffset(task.id, 1);
-      }
-    ));
-
-    actions.appendChild(createFocusActionButton(
-      "Next Week",
-      "edit-button focus-button",
-      function () {
-        moveTaskToDayOffset(task.id, 7);
-      }
-    ));
+    actions.appendChild(createFocusActionDropdown(task));
 
     head.appendChild(content);
     head.appendChild(actions);
@@ -1407,13 +1368,69 @@ function buildFocusMeta(task) {
   return dueLine;
 }
 
-function createFocusActionButton(text, className, onClick) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = className;
-  button.textContent = text;
-  button.addEventListener("click", onClick);
-  return button;
+function createFocusActionDropdown(task) {
+  const wrapper = document.createElement("label");
+  wrapper.className = "focus-dropdown-label";
+
+  const text = document.createElement("span");
+  text.className = "focus-dropdown-text";
+  text.textContent = "Quick Action";
+
+  const select = document.createElement("select");
+  select.className = "focus-action-select";
+
+  [
+    ["", "Choose action"],
+    [isTaskPinned(task) ? "unpin" : "pin", isTaskPinned(task) ? "Unpin from Focus" : "Pin to Focus"],
+    ["start", "Start Work"],
+    ["plus-15", "Postpone +15 min"],
+    ["tomorrow", "Move to Tomorrow"],
+    ["next-week", "Move to Next Week"],
+  ].forEach(function (entry) {
+    const option = document.createElement("option");
+    option.value = entry[0];
+    option.textContent = entry[1];
+    select.appendChild(option);
+  });
+
+  select.addEventListener("change", async function () {
+    if (!select.value) {
+      return;
+    }
+
+    await handleFocusActionSelection(task.id, select.value);
+    select.value = "";
+  });
+
+  wrapper.appendChild(text);
+  wrapper.appendChild(select);
+  return wrapper;
+}
+
+async function handleFocusActionSelection(taskId, action) {
+  if (action === "pin" || action === "unpin") {
+    toggleFocusPin(taskId);
+    return;
+  }
+
+  if (action === "start") {
+    await startWorkOnTask(taskId);
+    return;
+  }
+
+  if (action === "plus-15") {
+    await postponeTask(taskId, 15);
+    return;
+  }
+
+  if (action === "tomorrow") {
+    await moveTaskToDayOffset(taskId, 1);
+    return;
+  }
+
+  if (action === "next-week") {
+    await moveTaskToDayOffset(taskId, 7);
+  }
 }
 
 function toggleFocusPin(taskId) {

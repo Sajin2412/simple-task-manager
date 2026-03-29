@@ -211,23 +211,33 @@ body {
 
 .focus-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: flex-end;
   margin-top: 12px;
 }
 
-.focus-button {
-  min-width: auto;
-  padding: 9px 12px;
+.focus-dropdown-label {
+  display: block;
+  min-width: 220px;
 }
 
-.focus-pin-button {
-  background: #ccfbf1;
+.focus-dropdown-text {
+  display: block;
+  margin-bottom: 6px;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.focus-action-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  background: #ffffff;
   color: #115e59;
-}
-
-.focus-pin-button:hover {
-  background: #99f6e4;
+  font-weight: 600;
 }
 
 .focus-started {
