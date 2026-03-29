@@ -448,6 +448,10 @@ function renderFocusSection() {
       badges.appendChild(createBadge("badge reminder", "Pinned"));
     }
 
+    if (task.recurrenceRule !== "none") {
+      badges.appendChild(createBadge("badge recurrence", formatRecurrenceRule(task.recurrenceRule)));
+    }
+
     if (hasStartedWork(task)) {
       badges.appendChild(createBadge("badge focus-started", "Started"));
     }
@@ -547,6 +551,7 @@ function openTaskConfirmModal(task) {
     ["Due Date", task.dueDate ? formatDate(task.dueDate) : "Not set"],
     ["Due Time", task.dueTime ? formatTime(task.dueTime) : "Not set"],
     ["Reminder", task.reminderEnabled ? "15 minutes before deadline" : "Off"],
+    ["Repeat", formatRecurrenceRule(task.recurrenceRule)],
     ["Description", task.description || "No description added."],
     ["Remark", task.remark || "No remark added."],
     ["Hierarchy", task.hierarchy || "No hierarchy added."],
@@ -599,6 +604,7 @@ async function savePendingTask() {
   renderTasks();
   taskForm.reset();
   taskPriorityInput.value = "Medium";
+  taskRecurrenceInput.value = "none";
   taskTitleInput.focus();
   closeTaskConfirmModal();
 }
@@ -628,10 +634,11 @@ function exportTaskReport() {
   const taskRows = tasks.length === 0
     ? `
       <tr>
-        <td colspan="12">No tasks available.</td>
+        <td colspan="13">No tasks available.</td>
       </tr>
     `
     : tasks.map(function (task, index) {
+      const latestTimelineEntry = getLatestVisibleTimelineEntry(task);
       return `
         <tr>
           <td>${escapeHtml(String(index + 1))}</td>
@@ -640,12 +647,13 @@ function exportTaskReport() {
           <td>${escapeHtml(task.priority)}</td>
           <td>${escapeHtml(task.dueDate ? formatDate(task.dueDate) : "")}</td>
           <td>${escapeHtml(task.dueTime ? formatTime(task.dueTime) : "")}</td>
+          <td>${escapeHtml(formatRecurrenceRule(task.recurrenceRule))}</td>
           <td>${escapeHtml(task.reminderEnabled ? "15 minutes before deadline" : "Off")}</td>
           <td>${escapeHtml(task.description || "No description added.")}</td>
           <td>${escapeHtml(task.remark || "No remark added.")}</td>
           <td>${escapeHtml(task.hierarchy || "No hierarchy added.")}</td>
           <td>${escapeHtml(task.actionRemarks.length > 0 ? task.actionRemarks.join(" | ") : "No action remarks added.")}</td>
-          <td>${escapeHtml(task.timeline.length > 0 ? formatTimelineEntry(task.timeline[0]) : "No timeline record.")}</td>
+          <td>${escapeHtml(latestTimelineEntry ? formatTimelineEntry(latestTimelineEntry) : "No timeline record.")}</td>
         </tr>
       `;
     }).join("");
@@ -693,6 +701,7 @@ function exportTaskReport() {
               <th>Priority</th>
               <th>Due Date</th>
               <th>Due Time</th>
+              <th>Repeat</th>
               <th>Reminder</th>
               <th>Description</th>
               <th>Remark</th>
@@ -750,6 +759,16 @@ function renderDetailsBlock(task) {
   remarkText.textContent = task.remark || "No remark added.";
   details.appendChild(remarkText);
 
+  const recurrenceTitle = document.createElement("p");
+  recurrenceTitle.className = "details-title";
+  recurrenceTitle.textContent = "Repeat Schedule";
+  details.appendChild(recurrenceTitle);
+
+  const recurrenceText = document.createElement("p");
+  recurrenceText.className = "detail-text";
+  recurrenceText.textContent = formatRecurrenceRule(task.recurrenceRule);
+  details.appendChild(recurrenceText);
+
   const actionHeader = document.createElement("div");
   actionHeader.className = "details-header";
 
@@ -795,11 +814,17 @@ function renderDetailsBlock(task) {
   const timelineList = document.createElement("ul");
   timelineList.className = "timeline-list";
 
-  task.timeline.forEach(function (entry) {
+  getVisibleTimelineEntries(task).forEach(function (entry) {
     const item = document.createElement("li");
     item.textContent = `${entry.text} - ${formatTimelineTime(entry.time)}`;
     timelineList.appendChild(item);
   });
+
+  if (timelineList.children.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "No timeline record.";
+    timelineList.appendChild(item);
+  }
 
   details.appendChild(timelineList);
   return details;
@@ -883,6 +908,18 @@ async function editTask(taskId) {
   );
   if (updatedActionRemarks === null) return;
 
+  const updatedRecurrenceRule = window.prompt(
+    "Repeat setting: none, daily, weekdays, weekly, or monthly.",
+    task.recurrenceRule || "none"
+  );
+  if (updatedRecurrenceRule === null) return;
+
+  const cleanedRecurrenceRule = normalizeRecurrenceRule(updatedRecurrenceRule);
+  if (!cleanedRecurrenceRule) {
+    window.alert("Please enter none, daily, weekdays, weekly, or monthly.");
+    return;
+  }
+
   task.title = cleanedTitle;
   task.priority = cleanedPriority;
   task.dueDate = cleanedDueDate;
@@ -892,6 +929,10 @@ async function editTask(taskId) {
   task.description = updatedDescription.trim();
   task.remark = updatedRemark.trim();
   task.hierarchy = updatedHierarchy.trim();
+  task.recurrenceRule = cleanedRecurrenceRule;
+  if (cleanedRecurrenceRule === "none") {
+    task.recurrenceLastGeneratedAt = "";
+  }
   task.actionRemarks = parseActionRemarks(updatedActionRemarks);
   task.timeline.unshift(createTimelineEntry("Task details edited"));
 
@@ -1042,6 +1083,7 @@ function buildTaskFromCsvRow(headers, row) {
     description: rowData.description || "",
     remark: rowData.remark || "",
     hierarchy: rowData.hierarchy || "",
+    recurrenceRule: normalizeRecurrenceRule(rowData.repeat || rowData.recurrence || "none") || "none",
     actionRemarks: [
       rowData.actionRemark1 || "",
       rowData.actionRemark2 || "",
@@ -1070,6 +1112,17 @@ function formatReportDueLine(task) {
 
 function formatTimelineEntry(entry) {
   return `${entry.text} - ${formatTimelineTime(entry.time)}`;
+}
+
+function getVisibleTimelineEntries(task) {
+  return task.timeline.filter(function (entry) {
+    return !(entry && entry.systemType);
+  });
+}
+
+function getLatestVisibleTimelineEntry(task) {
+  const visibleEntries = getVisibleTimelineEntries(task);
+  return visibleEntries.length > 0 ? visibleEntries[0] : null;
 }
 
 function formatExportDateTime(date) {
@@ -1127,6 +1180,7 @@ function getVisibleTasks() {
         task.remark,
         task.hierarchy,
         task.priority,
+        formatRecurrenceRule(task.recurrenceRule),
         task.dueDate,
         task.dueTime,
         task.actionRemarks.join(" "),
@@ -1178,11 +1232,17 @@ function prepareTaskForDatabase(task) {
     hierarchy: task.hierarchy,
     action_remarks: task.actionRemarks,
     completed: task.completed,
-    timeline: task.timeline,
+    timeline: buildPersistedTimeline(task),
   };
 }
 
 function normalizeTask(task) {
+  const timeline = Array.isArray(task.timeline) && task.timeline.length > 0
+    ? task.timeline
+    : [createTimelineEntry("Task record created")];
+  const recurrenceConfig = getSystemTimelineEntry(timeline, "recurrence-config");
+  const recurrenceState = getSystemTimelineEntry(timeline, "recurrence-state");
+
   return {
     id: task.id || crypto.randomUUID(),
     createdAt: task.created_at || task.createdAt || createTaskBaseTime(),
@@ -1195,15 +1255,17 @@ function normalizeTask(task) {
     description: task.description || "",
     remark: task.remark || "",
     hierarchy: task.hierarchy || "",
+    recurrenceRule: normalizeRecurrenceRule(recurrenceConfig && recurrenceConfig.rule) || "none",
+    recurrenceLastGeneratedAt: recurrenceState && recurrenceState.generatedAt
+      ? recurrenceState.generatedAt
+      : "",
     actionRemarks: Array.isArray(task.action_remarks)
       ? task.action_remarks.slice(0, 3)
       : Array.isArray(task.actionRemarks)
       ? task.actionRemarks.slice(0, 3)
       : [],
     completed: Boolean(task.completed),
-    timeline: Array.isArray(task.timeline) && task.timeline.length > 0
-      ? task.timeline
-      : [createTimelineEntry("Task record created")],
+    timeline,
   };
 }
 
@@ -1220,6 +1282,79 @@ function createTimelineEntry(text) {
     text,
     time: createTaskBaseTime(),
   };
+}
+
+function normalizeRecurrenceRule(value) {
+  const cleanedValue = String(value || "").trim().toLowerCase();
+
+  if (!cleanedValue || cleanedValue === "none" || cleanedValue === "does not repeat") {
+    return "none";
+  }
+
+  if (cleanedValue === "daily") return "daily";
+  if (cleanedValue === "weekdays") return "weekdays";
+  if (cleanedValue === "weekly") return "weekly";
+  if (cleanedValue === "monthly") return "monthly";
+  return "";
+}
+
+function formatRecurrenceRule(rule) {
+  if (rule === "daily") return "Daily";
+  if (rule === "weekdays") return "Weekdays";
+  if (rule === "weekly") return "Weekly";
+  if (rule === "monthly") return "Monthly";
+  return "Does not repeat";
+}
+
+function getSystemTimelineEntry(timeline, systemType) {
+  if (!Array.isArray(timeline)) {
+    return null;
+  }
+
+  return timeline.find(function (entry) {
+    return entry && entry.systemType === systemType;
+  }) || null;
+}
+
+function buildPersistedTimeline(task) {
+  let timeline = Array.isArray(task.timeline) ? task.timeline.slice() : [];
+
+  timeline = upsertSystemTimelineEntry(
+    timeline,
+    "recurrence-config",
+    task.recurrenceRule !== "none" ? { rule: task.recurrenceRule } : null
+  );
+
+  timeline = upsertSystemTimelineEntry(
+    timeline,
+    "recurrence-state",
+    task.recurrenceRule !== "none" && task.recurrenceLastGeneratedAt
+      ? { generatedAt: task.recurrenceLastGeneratedAt }
+      : null
+  );
+
+  return timeline;
+}
+
+function upsertSystemTimelineEntry(timeline, systemType, data) {
+  const filteredTimeline = timeline.filter(function (entry) {
+    return !(entry && entry.systemType === systemType);
+  });
+
+  if (!data) {
+    return filteredTimeline;
+  }
+
+  return [
+    Object.assign(
+      {
+        text: systemType,
+        time: createTaskBaseTime(),
+        systemType,
+      },
+      data
+    ),
+  ].concat(filteredTimeline);
 }
 
 function formatPriority(priorityValue) {
@@ -1511,6 +1646,94 @@ function updateTaskDeadline(task, nextDate, timelineText) {
   task.dueTime = buildTimeInputValue(nextDate);
   task.reminderSentAt = "";
   task.timeline.unshift(createTimelineEntry(timelineText));
+}
+
+async function maybeCreateNextRecurringTask(task, completionTime) {
+  if (task.recurrenceRule === "none" || task.recurrenceLastGeneratedAt === completionTime) {
+    return;
+  }
+
+  const nextTask = buildNextRecurringTask(task);
+
+  if (!nextTask) {
+    return;
+  }
+
+  const result = await supabaseClient
+    .from("tasks")
+    .insert(prepareTaskForDatabase(nextTask))
+    .select()
+    .single();
+
+  if (result.error) {
+    showAppMessage(`Could not create the next recurring task: ${result.error.message}`);
+    window.alert(`Could not create the next recurring task: ${result.error.message}`);
+    return;
+  }
+
+  task.recurrenceLastGeneratedAt = completionTime;
+  task.timeline.unshift(createTimelineEntry(`Next ${formatRecurrenceRule(task.recurrenceRule).toLowerCase()} task created`));
+  await saveTask(task);
+  tasks.unshift(normalizeTask(result.data));
+}
+
+function buildNextRecurringTask(task) {
+  const nextDeadline = calculateNextRecurringDeadline(task);
+
+  if (!nextDeadline) {
+    return null;
+  }
+
+  return createTask({
+    title: task.title,
+    priority: task.priority,
+    dueDate: buildDateInputValue(nextDeadline),
+    dueTime: buildTimeInputValue(nextDeadline),
+    reminderEnabled: task.reminderEnabled,
+    description: task.description,
+    remark: task.remark,
+    hierarchy: task.hierarchy,
+    recurrenceRule: task.recurrenceRule,
+    actionRemarks: task.actionRemarks.slice(),
+    timelineText: `Created from ${formatRecurrenceRule(task.recurrenceRule).toLowerCase()} recurrence`,
+  });
+}
+
+function calculateNextRecurringDeadline(task) {
+  const baseDate = getTaskDeadline(task);
+
+  if (!baseDate) {
+    return null;
+  }
+
+  const nextDate = new Date(baseDate);
+
+  if (task.recurrenceRule === "daily") {
+    nextDate.setDate(nextDate.getDate() + 1);
+    return nextDate;
+  }
+
+  if (task.recurrenceRule === "weekdays") {
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
+      nextDate.setDate(nextDate.getDate() + 1);
+    }
+
+    return nextDate;
+  }
+
+  if (task.recurrenceRule === "weekly") {
+    nextDate.setDate(nextDate.getDate() + 7);
+    return nextDate;
+  }
+
+  if (task.recurrenceRule === "monthly") {
+    nextDate.setMonth(nextDate.getMonth() + 1);
+    return nextDate;
+  }
+
+  return null;
 }
 
 function readPinnedFocusTaskIds() {

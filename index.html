@@ -208,6 +208,17 @@
           >
         </label>
 
+        <label>
+          Repeat
+          <select id="task-recurrence">
+            <option value="none" selected>Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekdays">Weekdays</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+
         <fieldset class="remarks-group">
           <legend>Action Remarks (up to 3)</legend>
           <input id="task-action-remark-1" type="text" placeholder="Action remark 1">
@@ -236,7 +247,7 @@
         <input id="csv-import" type="file" accept=".csv" class="file-input">
         <p class="import-help">
           Use these columns: <strong>title</strong>, <strong>priority</strong>, <strong>dueDate</strong>,
-          <strong>dueTime</strong>, <strong>description</strong>, <strong>remark</strong>, <strong>hierarchy</strong>,
+          <strong>dueTime</strong>, <strong>repeat</strong>, <strong>description</strong>, <strong>remark</strong>, <strong>hierarchy</strong>,
           <strong>actionRemark1</strong>, <strong>actionRemark2</strong>, <strong>actionRemark3</strong>
         </p>
       </div>

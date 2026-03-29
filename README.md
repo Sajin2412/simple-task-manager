@@ -17,6 +17,7 @@ This is a very small personal task management web app made with:
 - Add a description for detailed explanation
 - Add one remark and up to 3 action remarks
 - Add hierarchy like `Work > Project > Task`
+- Set recurring tasks like daily, weekdays, weekly, or monthly
 - Import many tasks at once from Excel-saved CSV
 - Sign up and log in with email and password
 - Sync the same tasks on iPhone and Mac
@@ -165,6 +166,7 @@ The simplest way is:
    - `priority`
    - `dueDate`
    - `dueTime`
+   - `repeat`
    - `description`
    - `remark`
    - `hierarchy`
@@ -178,8 +180,8 @@ The simplest way is:
 Example:
 
 ```text
-title,priority,dueDate,dueTime,description,remark,hierarchy,actionRemark1,actionRemark2,actionRemark3
-Pay rent,High,2026-03-25,09:00,Monthly house rent,Do before morning,Home > Finance > Rent,Check account balance,Send transfer,Save receipt
+title,priority,dueDate,dueTime,repeat,description,remark,hierarchy,actionRemark1,actionRemark2,actionRemark3
+Pay rent,High,2026-03-25,09:00,monthly,Monthly house rent,Do before morning,Home > Finance > Rent,Check account balance,Send transfer,Save receipt
 ```
 
 ## Very simple hosting option: GitHub Pages

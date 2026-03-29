@@ -613,6 +613,11 @@ textarea {
   color: #0e7490;
 }
 
+.badge.recurrence {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
 .badge.overdue {
   background: #fee2e2;
   color: #b91c1c;
