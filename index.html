@@ -50,95 +50,121 @@
     </section>
 
     <section id="app-section" hidden>
-      <section class="card status-card">
-        <div class="status-row">
-          <div>
-            <p class="status-label">Logged in as</p>
-            <p id="user-email" class="status-value"></p>
-          </div>
-        </div>
-
-        <p id="app-message" class="app-message" hidden></p>
-      </section>
-
-      <section class="summary-panel">
-        <div class="toolbar summary-toolbar">
-          <div class="list-header">
-            <h2>Dashboard Summary</h2>
-            <span class="task-count">Download the task report as an Excel sheet</span>
-          </div>
-
-          <button id="export-report-button" type="button" class="edit-button export-button">
-            Export Excel Sheet
-          </button>
-        </div>
-
-        <div class="summary-grid">
-        <article class="card summary-card">
-          <p class="summary-label">Total Tasks</p>
-          <p id="summary-total" class="summary-value">0</p>
-        </article>
-
-        <article class="card summary-card">
-          <p class="summary-label">Pending</p>
-          <p id="summary-pending" class="summary-value">0</p>
-        </article>
-
-        <article class="card summary-card">
-          <p class="summary-label">Completed</p>
-          <p id="summary-completed" class="summary-value">0</p>
-        </article>
-
-        <article class="card summary-card summary-alert">
-          <p class="summary-label">Overdue</p>
-          <p id="summary-overdue" class="summary-value">0</p>
-        </article>
-        </div>
-      </section>
-
-      <section class="card reminder-card">
-        <div class="list-header">
-          <h2>Reminder Center</h2>
-          <span id="reminder-count" class="task-count">0 alerts</span>
-        </div>
-
-        <ul id="reminder-list" class="reminder-list"></ul>
-        <p id="reminder-empty" class="empty-state">No reminder alerts right now.</p>
-      </section>
-
-      <section class="card focus-card">
-        <div class="toolbar focus-toolbar">
-          <div class="list-header focus-header">
-            <div>
-              <h2>Today Focus</h2>
-              <p class="focus-subtitle">Overdue, due today, and pinned tasks in one place.</p>
+      <div class="app-shell">
+        <aside class="sidebar card">
+          <div class="brand-lockup sidebar-brand">
+            <div class="brand-logo">
+              <span>Sajin</span>
             </div>
-            <span id="focus-count" class="task-count">0 focus tasks</span>
+            <p class="brand-tagline">Task System</p>
           </div>
 
-          <div class="focus-progress">
-            <p id="focus-progress-label" class="focus-progress-label">0 of 0 done</p>
-            <div class="focus-progress-track" aria-hidden="true">
-              <span id="focus-progress-bar" class="focus-progress-bar"></span>
+          <nav id="sidebar-nav" class="sidebar-nav" aria-label="Main menu">
+            <button type="button" class="sidebar-link active" data-view="dashboard">Dashboard</button>
+            <button type="button" class="sidebar-link" data-view="add-task">Add New task</button>
+            <button type="button" class="sidebar-link" data-view="today-focus">Today Focus</button>
+            <button type="button" class="sidebar-link" data-view="all-tasks">All Tasks</button>
+            <button type="button" class="sidebar-link" data-view="recurring-tasks">Recurring Tasks</button>
+            <button type="button" class="sidebar-link" data-view="completed-tasks">Completed</button>
+            <button id="sidebar-logout-button" type="button" class="sidebar-link sidebar-link-logout">Log out</button>
+          </nav>
+        </aside>
+
+        <div class="app-content">
+          <section id="dashboard-section" class="view-section">
+            <section class="card status-card">
+              <div class="status-row">
+                <div>
+                  <p class="status-label">Logged in as</p>
+                  <p id="user-email" class="status-value"></p>
+                </div>
+              </div>
+
+              <p id="app-message" class="app-message" hidden></p>
+            </section>
+
+            <section class="summary-panel">
+              <div class="toolbar summary-toolbar">
+                <div class="list-header">
+                  <h2>Dashboard Summary</h2>
+                  <span class="task-count">Download the task report as an Excel sheet</span>
+                </div>
+
+                <button id="export-report-button" type="button" class="edit-button export-button">
+                  Export Excel Sheet
+                </button>
+              </div>
+
+              <div class="summary-grid">
+              <article class="card summary-card">
+                <p class="summary-label">Total Tasks</p>
+                <p id="summary-total" class="summary-value">0</p>
+              </article>
+
+              <article class="card summary-card">
+                <p class="summary-label">Pending</p>
+                <p id="summary-pending" class="summary-value">0</p>
+              </article>
+
+              <article class="card summary-card">
+                <p class="summary-label">Completed</p>
+                <p id="summary-completed" class="summary-value">0</p>
+              </article>
+
+              <article class="card summary-card summary-alert">
+                <p class="summary-label">Overdue</p>
+                <p id="summary-overdue" class="summary-value">0</p>
+              </article>
+              </div>
+            </section>
+
+            <section class="card reminder-card">
+              <div class="list-header">
+                <h2>Reminder Center</h2>
+                <span id="reminder-count" class="task-count">0 alerts</span>
+              </div>
+
+              <ul id="reminder-list" class="reminder-list"></ul>
+              <p id="reminder-empty" class="empty-state">No reminder alerts right now.</p>
+            </section>
+          </section>
+
+          <section id="focus-section" class="view-section" hidden>
+            <section class="card focus-card">
+              <div class="toolbar focus-toolbar">
+                <div class="list-header focus-header">
+                  <div>
+                    <h2>Today Focus</h2>
+                    <p class="focus-subtitle">Overdue, due today, and pinned tasks in one place.</p>
+                  </div>
+                  <span id="focus-count" class="task-count">0 focus tasks</span>
+                </div>
+
+                <div class="focus-progress">
+                  <p id="focus-progress-label" class="focus-progress-label">0 of 0 done</p>
+                  <div class="focus-progress-track" aria-hidden="true">
+                    <span id="focus-progress-bar" class="focus-progress-bar"></span>
+                  </div>
+                </div>
+              </div>
+
+              <ul id="focus-list" class="focus-list"></ul>
+              <p id="focus-empty" class="empty-state">No focus tasks right now.</p>
+            </section>
+          </section>
+
+          <section id="add-task-section" class="view-section" hidden>
+            <section class="card">
+            <div class="brand-lockup">
+              <div class="brand-logo">
+                <span>Sajin</span>
+              </div>
+              <p class="brand-tagline">Task System</p>
             </div>
-          </div>
-        </div>
+            <h1>Sajin Task Management</h1>
+            <p class="subtitle">A simple place to keep track of your tasks.</p>
 
-        <ul id="focus-list" class="focus-list"></ul>
-        <p id="focus-empty" class="empty-state">No focus tasks right now.</p>
-      </section>
-
-      <section class="card">
-      <div class="brand-lockup">
-        <div class="brand-logo">
-          <span>Sajin</span>
-        </div>
-        <p class="brand-tagline">Task System</p>
-      </div>
-      <h1>Sajin Task Management</h1>
-      <p class="subtitle">A simple place to keep track of your tasks.</p>
-
-      <form id="task-form" class="task-form">
+            <form id="task-form" class="task-form">
         <label>
           Task name
           <input
@@ -238,87 +264,88 @@
         </fieldset>
 
         <button type="submit" class="primary-button">Add Task</button>
-      </form>
+            </form>
 
-      <div class="notification-box">
-        <p class="notification-title">Browser reminders</p>
-        <p class="notification-text">
-          Turn on notifications to get a reminder 15 minutes before a task deadline while this app is open.
-        </p>
-        <button id="enable-reminders" type="button" class="edit-button notification-button">
-          Enable Notifications
-        </button>
-      </div>
+            <div class="notification-box">
+              <p class="notification-title">Browser reminders</p>
+              <p class="notification-text">
+                Turn on notifications to get a reminder 15 minutes before a task deadline while this app is open.
+              </p>
+              <button id="enable-reminders" type="button" class="edit-button notification-button">
+                Enable Notifications
+              </button>
+            </div>
 
-      <div class="notification-box">
-        <p class="notification-title">Bulk Import From Excel</p>
-        <p class="notification-text">
-          Prepare tasks in Excel, save the sheet as CSV, then import them here.
-        </p>
-        <input id="csv-import" type="file" accept=".csv" class="file-input">
-        <p class="import-help">
-          Use these columns: <strong>title</strong>, <strong>priority</strong>, <strong>dueDate</strong>,
-          <strong>dueTime</strong>, <strong>repeat</strong>, <strong>description</strong>, <strong>remark</strong>, <strong>hierarchy</strong>,
-          <strong>actionRemark1</strong>, <strong>actionRemark2</strong>, <strong>actionRemark3</strong>
-        </p>
-      </div>
-      </section>
+            <div class="notification-box">
+              <p class="notification-title">Bulk Import From Excel</p>
+              <p class="notification-text">
+                Prepare tasks in Excel, save the sheet as CSV, then import them here.
+              </p>
+              <input id="csv-import" type="file" accept=".csv" class="file-input">
+              <p class="import-help">
+                Use these columns: <strong>title</strong>, <strong>priority</strong>, <strong>dueDate</strong>,
+                <strong>dueTime</strong>, <strong>repeat</strong>, <strong>description</strong>, <strong>remark</strong>, <strong>hierarchy</strong>,
+                <strong>actionRemark1</strong>, <strong>actionRemark2</strong>, <strong>actionRemark3</strong>
+              </p>
+            </div>
+            </section>
+          </section>
 
-      <section class="card">
-      <div class="toolbar">
-        <div class="list-header">
-          <h2>All Tasks</h2>
-          <span id="task-count" class="task-count">0 tasks</span>
+          <section id="tasks-section" class="view-section" hidden>
+            <section class="card">
+            <div class="toolbar">
+              <div class="list-header">
+                <h2 id="task-list-heading">All Tasks</h2>
+                <span id="task-count" class="task-count">0 tasks</span>
+              </div>
+
+              <div class="task-controls">
+                <label class="filter-label">
+                  Search
+                  <input
+                    id="task-search"
+                    type="search"
+                    placeholder="Search title, description, remarks..."
+                  >
+                </label>
+
+                <label class="filter-label">
+                  Filter
+                  <select id="task-filter">
+                    <option value="all">All</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                </label>
+
+                <label class="filter-label">
+                  Sort
+                  <select id="task-sort">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="due-soon">Due Soon</option>
+                    <option value="due-late">Due Later</option>
+                    <option value="priority-high">Priority: High to Low</option>
+                    <option value="priority-low">Priority: Low to High</option>
+                    <option value="title-az">Title: A to Z</option>
+                    <option value="title-za">Title: Z to A</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <ul id="task-list" class="task-list"></ul>
+
+            <p id="empty-state" class="empty-state">
+              No tasks to show right now.
+            </p>
+            </section>
+          </section>
         </div>
-
-        <div class="task-controls">
-          <label class="filter-label">
-            Search
-            <input
-              id="task-search"
-              type="search"
-              placeholder="Search title, description, remarks..."
-            >
-          </label>
-
-          <label class="filter-label">
-            Filter
-            <select id="task-filter">
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="high">High Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="low">Low Priority</option>
-            </select>
-          </label>
-
-          <label class="filter-label">
-            Sort
-            <select id="task-sort">
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="due-soon">Due Soon</option>
-              <option value="due-late">Due Later</option>
-              <option value="priority-high">Priority: High to Low</option>
-              <option value="priority-low">Priority: Low to High</option>
-              <option value="title-az">Title: A to Z</option>
-              <option value="title-za">Title: Z to A</option>
-            </select>
-          </label>
-        </div>
       </div>
-
-      <ul id="task-list" class="task-list"></ul>
-
-      <p id="empty-state" class="empty-state">
-        No tasks to show right now.
-      </p>
-      </section>
-
-      <section class="card footer-card">
-        <button id="logout-button" type="button" class="edit-button logout-button">Logout</button>
-      </section>
     </section>
   </main>
 

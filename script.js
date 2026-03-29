@@ -7,7 +7,12 @@ const authModeSelect = document.getElementById("auth-mode");
 const authMessage = document.getElementById("auth-message");
 const userEmail = document.getElementById("user-email");
 const appMessage = document.getElementById("app-message");
-const logoutButton = document.getElementById("logout-button");
+const sidebarNav = document.getElementById("sidebar-nav");
+const sidebarLogoutButton = document.getElementById("sidebar-logout-button");
+const dashboardSection = document.getElementById("dashboard-section");
+const addTaskSection = document.getElementById("add-task-section");
+const focusSection = document.getElementById("focus-section");
+const tasksSection = document.getElementById("tasks-section");
 const summaryTotal = document.getElementById("summary-total");
 const summaryPending = document.getElementById("summary-pending");
 const summaryCompleted = document.getElementById("summary-completed");
@@ -43,6 +48,7 @@ const taskActionRemark2Input = document.getElementById("task-action-remark-2");
 const taskActionRemark3Input = document.getElementById("task-action-remark-3");
 const taskList = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const taskListHeading = document.getElementById("task-list-heading");
 const taskCount = document.getElementById("task-count");
 const taskFilter = document.getElementById("task-filter");
 const taskSearchInput = document.getElementById("task-search");
@@ -63,6 +69,7 @@ let tasks = [];
 let activeFilter = "all";
 let activeSearchTerm = "";
 let activeSort = "newest";
+let activeSidebarView = "dashboard";
 let pinnedFocusTaskIds = [];
 let pendingTaskDraft = null;
 
@@ -79,7 +86,8 @@ async function initializeApp() {
   supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
   authForm.addEventListener("submit", handleAuthSubmit);
-  logoutButton.addEventListener("click", handleLogout);
+  sidebarNav.addEventListener("click", handleSidebarNavigation);
+  sidebarLogoutButton.addEventListener("click", handleLogout);
   taskForm.addEventListener("submit", handleTaskSubmit);
   taskFilter.addEventListener("change", function () {
     activeFilter = taskFilter.value;
@@ -131,6 +139,7 @@ async function applySession(session) {
     userEmail.textContent = "";
     tasks = [];
     pinnedFocusTaskIds = [];
+    activeSidebarView = "dashboard";
     clearAppMessage();
     renderTasks();
     return;
@@ -140,6 +149,7 @@ async function applySession(session) {
   appSection.hidden = false;
   userEmail.textContent = currentUser.email || "";
   loadPinnedFocusTasks();
+  setSidebarView("dashboard");
   await loadTasks();
 }
 
@@ -288,6 +298,7 @@ function renderTasks() {
   renderSummary();
   renderReminderCenter();
   renderFocusSection();
+  renderViewVisibility();
   const filteredTasks = getVisibleTasks();
 
   if (filteredTasks.length === 0) {
@@ -417,6 +428,60 @@ function renderTasks() {
     listItem.appendChild(actions);
     taskList.appendChild(listItem);
   });
+}
+
+function handleSidebarNavigation(event) {
+  const button = event.target.closest("[data-view]");
+
+  if (!button) {
+    return;
+  }
+
+  setSidebarView(button.dataset.view || "dashboard");
+}
+
+function setSidebarView(view) {
+  activeSidebarView = view;
+
+  if (view === "all-tasks") {
+    activeFilter = "all";
+    taskFilter.value = "all";
+    taskListHeading.textContent = "All Tasks";
+  } else if (view === "recurring-tasks") {
+    activeFilter = "all";
+    taskFilter.value = "all";
+    taskListHeading.textContent = "Recurring Tasks";
+  } else if (view === "completed-tasks") {
+    activeFilter = "completed";
+    taskFilter.value = "completed";
+    taskListHeading.textContent = "Completed Tasks";
+  } else if (view === "today-focus") {
+    taskListHeading.textContent = "All Tasks";
+  } else if (view === "add-task") {
+    taskListHeading.textContent = "All Tasks";
+  } else {
+    taskListHeading.textContent = "All Tasks";
+  }
+
+  updateSidebarState();
+  renderTasks();
+
+  if (view === "add-task") {
+    taskTitleInput.focus();
+  }
+}
+
+function updateSidebarState() {
+  Array.from(sidebarNav.querySelectorAll("[data-view]")).forEach(function (button) {
+    button.classList.toggle("active", button.dataset.view === activeSidebarView);
+  });
+}
+
+function renderViewVisibility() {
+  dashboardSection.hidden = activeSidebarView !== "dashboard";
+  addTaskSection.hidden = activeSidebarView !== "add-task";
+  focusSection.hidden = activeSidebarView !== "today-focus";
+  tasksSection.hidden = !["all-tasks", "recurring-tasks", "completed-tasks"].includes(activeSidebarView);
 }
 
 function renderFocusSection() {
@@ -1354,6 +1419,10 @@ function buildFileDate(date) {
 function getVisibleTasks() {
   return tasks
     .filter(function (task) {
+    if (activeSidebarView === "recurring-tasks" && task.recurrenceRule === "none") {
+      return false;
+    }
+
     if (activeFilter === "active") {
       return !task.completed;
     }
