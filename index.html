@@ -227,17 +227,42 @@
           <span id="task-count" class="task-count">0 tasks</span>
         </div>
 
-        <label class="filter-label">
-          Filter
-          <select id="task-filter">
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
-            <option value="high">High Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="low">Low Priority</option>
-          </select>
-        </label>
+        <div class="task-controls">
+          <label class="filter-label">
+            Search
+            <input
+              id="task-search"
+              type="search"
+              placeholder="Search title, description, remarks..."
+            >
+          </label>
+
+          <label class="filter-label">
+            Filter
+            <select id="task-filter">
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="high">High Priority</option>
+              <option value="medium">Medium Priority</option>
+              <option value="low">Low Priority</option>
+            </select>
+          </label>
+
+          <label class="filter-label">
+            Sort
+            <select id="task-sort">
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="due-soon">Due Soon</option>
+              <option value="due-late">Due Later</option>
+              <option value="priority-high">Priority: High to Low</option>
+              <option value="priority-low">Priority: Low to High</option>
+              <option value="title-az">Title: A to Z</option>
+              <option value="title-za">Title: Z to A</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <ul id="task-list" class="task-list"></ul>

@@ -379,8 +379,17 @@ textarea {
   font-weight: 600;
 }
 
+.task-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.filter-label input,
 .filter-label select {
   margin-top: 8px;
+  width: 100%;
 }
 
 .task-list {
@@ -673,6 +682,10 @@ textarea {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .task-controls {
+    justify-content: stretch;
   }
 
   .summary-grid {

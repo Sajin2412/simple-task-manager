@@ -38,6 +38,8 @@ const taskList = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 const taskCount = document.getElementById("task-count");
 const taskFilter = document.getElementById("task-filter");
+const taskSearchInput = document.getElementById("task-search");
+const taskSort = document.getElementById("task-sort");
 const enableRemindersButton = document.getElementById("enable-reminders");
 const csvImportInput = document.getElementById("csv-import");
 
@@ -48,6 +50,8 @@ let supabaseClient = null;
 let currentUser = null;
 let tasks = [];
 let activeFilter = "all";
+let activeSearchTerm = "";
+let activeSort = "newest";
 let pendingTaskDraft = null;
 
 initializeApp();
@@ -67,6 +71,14 @@ async function initializeApp() {
   taskForm.addEventListener("submit", handleTaskSubmit);
   taskFilter.addEventListener("change", function () {
     activeFilter = taskFilter.value;
+    renderTasks();
+  });
+  taskSearchInput.addEventListener("input", function () {
+    activeSearchTerm = taskSearchInput.value.trim().toLowerCase();
+    renderTasks();
+  });
+  taskSort.addEventListener("change", function () {
+    activeSort = taskSort.value;
     renderTasks();
   });
   exportReportButton.addEventListener("click", exportTaskReport);
@@ -192,6 +204,7 @@ async function loadTasks() {
 function createTask(taskData) {
   return {
     id: crypto.randomUUID(),
+    createdAt: createTaskBaseTime(),
     title: taskData.title,
     priority: taskData.priority || "Medium",
     dueDate: taskData.dueDate || "",
@@ -246,16 +259,16 @@ function renderTasks() {
   taskList.innerHTML = "";
   renderSummary();
   renderReminderCenter();
-  const filteredTasks = getFilteredTasks();
+  const filteredTasks = getVisibleTasks();
 
   if (filteredTasks.length === 0) {
     emptyState.hidden = false;
-    taskCount.textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
+    taskCount.textContent = buildTaskCountText(filteredTasks.length);
     return;
   }
 
   emptyState.hidden = true;
-  taskCount.textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
+  taskCount.textContent = buildTaskCountText(filteredTasks.length);
 
   filteredTasks.forEach(function (task) {
     const listItem = document.createElement("li");
@@ -988,8 +1001,9 @@ function buildFileDate(date) {
   return `${year}-${month}-${day}-${hours}${minutes}`;
 }
 
-function getFilteredTasks() {
-  return tasks.filter(function (task) {
+function getVisibleTasks() {
+  return tasks
+    .filter(function (task) {
     if (activeFilter === "active") {
       return !task.completed;
     }
@@ -1003,7 +1017,34 @@ function getFilteredTasks() {
     }
 
     return true;
-  });
+    })
+    .filter(function (task) {
+      if (!activeSearchTerm) {
+        return true;
+      }
+
+      const searchableFields = [
+        task.title,
+        task.description,
+        task.remark,
+        task.hierarchy,
+        task.priority,
+        task.dueDate,
+        task.dueTime,
+        task.actionRemarks.join(" "),
+      ];
+
+      return searchableFields.join(" ").toLowerCase().includes(activeSearchTerm);
+    })
+    .sort(compareTasksForActiveSort);
+}
+
+function buildTaskCountText(visibleCount) {
+  if (visibleCount === tasks.length) {
+    return `${visibleCount} task${visibleCount === 1 ? "" : "s"}`;
+  }
+
+  return `${visibleCount} of ${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
 }
 
 function collectActionRemarks() {
@@ -1038,6 +1079,7 @@ function prepareTaskForDatabase(task) {
 function normalizeTask(task) {
   return {
     id: task.id || crypto.randomUUID(),
+    createdAt: task.created_at || task.createdAt || createTaskBaseTime(),
     title: task.title || "",
     priority: task.priority || "Medium",
     dueDate: task.due_date || task.dueDate || "",
@@ -1077,6 +1119,92 @@ function formatPriority(priorityValue) {
   if (value === "medium") return "Medium";
   if (value === "low") return "Low";
   return "";
+}
+
+function compareTasksForActiveSort(firstTask, secondTask) {
+  if (activeSort === "oldest") {
+    return getTaskCreatedTime(firstTask) - getTaskCreatedTime(secondTask);
+  }
+
+  if (activeSort === "due-soon") {
+    return compareDeadline(firstTask, secondTask, "asc");
+  }
+
+  if (activeSort === "due-late") {
+    return compareDeadline(firstTask, secondTask, "desc");
+  }
+
+  if (activeSort === "priority-high") {
+    return getPriorityRank(secondTask.priority) - getPriorityRank(firstTask.priority);
+  }
+
+  if (activeSort === "priority-low") {
+    return getPriorityRank(firstTask.priority) - getPriorityRank(secondTask.priority);
+  }
+
+  if (activeSort === "title-az") {
+    return firstTask.title.localeCompare(secondTask.title);
+  }
+
+  if (activeSort === "title-za") {
+    return secondTask.title.localeCompare(firstTask.title);
+  }
+
+  return getTaskCreatedTime(secondTask) - getTaskCreatedTime(firstTask);
+}
+
+function getPriorityRank(priority) {
+  if (priority === "High") return 3;
+  if (priority === "Medium") return 2;
+  return 1;
+}
+
+function compareDeadline(firstTask, secondTask, direction) {
+  const firstHasDeadline = Boolean(firstTask.dueDate);
+  const secondHasDeadline = Boolean(secondTask.dueDate);
+
+  if (!firstHasDeadline && !secondHasDeadline) {
+    return compareTasksForFallback(firstTask, secondTask, direction);
+  }
+
+  if (!firstHasDeadline) {
+    return 1;
+  }
+
+  if (!secondHasDeadline) {
+    return -1;
+  }
+
+  const firstDeadline = getTaskDeadlineTimestamp(firstTask);
+  const secondDeadline = getTaskDeadlineTimestamp(secondTask);
+
+  if (firstDeadline === secondDeadline) {
+    return compareTasksForFallback(firstTask, secondTask, direction);
+  }
+
+  return direction === "asc"
+    ? firstDeadline - secondDeadline
+    : secondDeadline - firstDeadline;
+}
+
+function compareTasksForFallback(firstTask, secondTask, direction) {
+  return direction === "asc"
+    ? getTaskCreatedTime(firstTask) - getTaskCreatedTime(secondTask)
+    : getTaskCreatedTime(secondTask) - getTaskCreatedTime(firstTask);
+}
+
+function getTaskDeadlineTimestamp(task) {
+  if (!task.dueDate) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const deadline = getTaskDeadline(task);
+  return deadline ? deadline.getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+function getTaskCreatedTime(task) {
+  const createdTime = new Date(task.createdAt || "").getTime();
+  return Number.isNaN(createdTime) ? 0 : createdTime;
 }
 
 function parseActionRemarks(value) {
