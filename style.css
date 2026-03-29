@@ -349,6 +349,15 @@ h2 {
   margin-bottom: 16px;
 }
 
+.field-help {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
 .checkbox-label {
   display: flex;
   flex-direction: column;
@@ -658,6 +667,52 @@ textarea {
   color: #475569;
 }
 
+.attachment-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.attachment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.attachment-meta {
+  min-width: 0;
+}
+
+.attachment-name {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.attachment-info {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.attachment-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.attachment-button {
+  min-width: auto;
+  width: auto;
+}
+
 .remark-list,
 .timeline-list {
   margin: 0 0 8px;
@@ -845,6 +900,15 @@ textarea {
 
   .focus-item-head {
     flex-direction: column;
+  }
+
+  .attachment-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .attachment-actions {
+    justify-content: flex-end;
   }
 
   .status-row {

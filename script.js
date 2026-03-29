@@ -37,6 +37,7 @@ const taskDescriptionInput = document.getElementById("task-description");
 const taskRemarkInput = document.getElementById("task-remark");
 const taskHierarchyInput = document.getElementById("task-hierarchy");
 const taskRecurrenceInput = document.getElementById("task-recurrence");
+const taskAttachmentsInput = document.getElementById("task-attachments");
 const taskActionRemark1Input = document.getElementById("task-action-remark-1");
 const taskActionRemark2Input = document.getElementById("task-action-remark-2");
 const taskActionRemark3Input = document.getElementById("task-action-remark-3");
@@ -51,6 +52,10 @@ const csvImportInput = document.getElementById("csv-import");
 
 const supabaseUrl = window.SUPABASE_URL;
 const supabaseAnonKey = window.SUPABASE_ANON_KEY;
+const ATTACHMENTS_BUCKET_NAME = "task-attachments";
+const MAX_ATTACHMENTS_PER_TASK = 5;
+const MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = ["application/pdf", "image/jpeg"];
 
 let supabaseClient = null;
 let currentUser = null;
@@ -225,6 +230,8 @@ function createTask(taskData) {
     hierarchy: taskData.hierarchy || "",
     recurrenceRule: normalizeRecurrenceRule(taskData.recurrenceRule) || "none",
     recurrenceLastGeneratedAt: "",
+    attachments: Array.isArray(taskData.attachments) ? taskData.attachments.slice(0, MAX_ATTACHMENTS_PER_TASK) : [],
+    pendingAttachmentFiles: Array.isArray(taskData.pendingAttachmentFiles) ? taskData.pendingAttachmentFiles.slice(0, MAX_ATTACHMENTS_PER_TASK) : [],
     actionRemarks: Array.isArray(taskData.actionRemarks) ? taskData.actionRemarks.slice(0, 3) : [],
     completed: false,
     timeline: [createTimelineEntry(taskData.timelineText || "Task created")],
@@ -241,6 +248,7 @@ async function handleTaskSubmit(event) {
   const remark = taskRemarkInput.value.trim();
   const hierarchy = taskHierarchyInput.value.trim();
   const recurrenceRule = taskRecurrenceInput.value;
+  const pendingAttachmentFiles = Array.from(taskAttachmentsInput.files || []);
   const actionRemarks = collectActionRemarks();
 
   if (!title || !currentUser) {
@@ -249,6 +257,12 @@ async function handleTaskSubmit(event) {
 
   if (!dueDate || !dueTime || !description) {
     showAppMessage("Please fill in all required fields.");
+    return;
+  }
+
+  const attachmentValidationError = validateAttachmentFiles(pendingAttachmentFiles, 0);
+  if (attachmentValidationError) {
+    showAppMessage(attachmentValidationError);
     return;
   }
 
@@ -262,6 +276,7 @@ async function handleTaskSubmit(event) {
     remark,
     hierarchy,
     recurrenceRule,
+    pendingAttachmentFiles,
     actionRemarks,
     timelineText: "Task created",
   });
@@ -333,6 +348,15 @@ function renderTasks() {
 
     if (task.recurrenceRule !== "none") {
       meta.appendChild(createBadge("badge recurrence", `Repeats: ${formatRecurrenceRule(task.recurrenceRule)}`));
+    }
+
+    if (task.attachments.length > 0) {
+      meta.appendChild(
+        createBadge(
+          "badge due-date",
+          `${task.attachments.length} attachment${task.attachments.length === 1 ? "" : "s"}`
+        )
+      );
     }
 
     if (isTaskOverdue(task)) {
@@ -552,6 +576,7 @@ function openTaskConfirmModal(task) {
     ["Due Time", task.dueTime ? formatTime(task.dueTime) : "Not set"],
     ["Reminder", task.reminderEnabled ? "15 minutes before deadline" : "Off"],
     ["Repeat", formatRecurrenceRule(task.recurrenceRule)],
+    ["Attachments", String((task.attachments || []).length + (task.pendingAttachmentFiles || []).length)],
     ["Description", task.description || "No description added."],
     ["Remark", task.remark || "No remark added."],
     ["Hierarchy", task.hierarchy || "No hierarchy added."],
@@ -587,6 +612,22 @@ async function savePendingTask() {
     return;
   }
 
+  let uploadedAttachments = [];
+
+  if (pendingTaskDraft.pendingAttachmentFiles.length > 0) {
+    uploadedAttachments = await uploadAttachmentFilesForTask(
+      pendingTaskDraft,
+      pendingTaskDraft.pendingAttachmentFiles
+    );
+
+    if (!uploadedAttachments) {
+      return;
+    }
+  }
+
+  pendingTaskDraft.attachments = uploadedAttachments;
+  pendingTaskDraft.pendingAttachmentFiles = [];
+
   const result = await supabaseClient
     .from("tasks")
     .insert(prepareTaskForDatabase(pendingTaskDraft))
@@ -594,6 +635,9 @@ async function savePendingTask() {
     .single();
 
   if (result.error) {
+    if (uploadedAttachments.length > 0) {
+      await deleteAttachmentsFromStorage(uploadedAttachments);
+    }
     showAppMessage(`Could not add task: ${result.error.message}`);
     window.alert(`Could not add task: ${result.error.message}`);
     return;
@@ -605,6 +649,7 @@ async function savePendingTask() {
   taskForm.reset();
   taskPriorityInput.value = "Medium";
   taskRecurrenceInput.value = "none";
+  taskAttachmentsInput.value = "";
   taskTitleInput.focus();
   closeTaskConfirmModal();
 }
@@ -634,7 +679,7 @@ function exportTaskReport() {
   const taskRows = tasks.length === 0
     ? `
       <tr>
-        <td colspan="13">No tasks available.</td>
+        <td colspan="14">No tasks available.</td>
       </tr>
     `
     : tasks.map(function (task, index) {
@@ -648,6 +693,7 @@ function exportTaskReport() {
           <td>${escapeHtml(task.dueDate ? formatDate(task.dueDate) : "")}</td>
           <td>${escapeHtml(task.dueTime ? formatTime(task.dueTime) : "")}</td>
           <td>${escapeHtml(formatRecurrenceRule(task.recurrenceRule))}</td>
+          <td>${escapeHtml(task.attachments.map(function (attachment) { return attachment.name; }).join(" | ") || "No attachments")}</td>
           <td>${escapeHtml(task.reminderEnabled ? "15 minutes before deadline" : "Off")}</td>
           <td>${escapeHtml(task.description || "No description added.")}</td>
           <td>${escapeHtml(task.remark || "No remark added.")}</td>
@@ -702,6 +748,7 @@ function exportTaskReport() {
               <th>Due Date</th>
               <th>Due Time</th>
               <th>Repeat</th>
+              <th>Attachments</th>
               <th>Reminder</th>
               <th>Description</th>
               <th>Remark</th>
@@ -768,6 +815,97 @@ function renderDetailsBlock(task) {
   recurrenceText.className = "detail-text";
   recurrenceText.textContent = formatRecurrenceRule(task.recurrenceRule);
   details.appendChild(recurrenceText);
+
+  const attachmentsHeader = document.createElement("div");
+  attachmentsHeader.className = "details-header";
+
+  const attachmentsTitle = document.createElement("p");
+  attachmentsTitle.className = "details-title";
+  attachmentsTitle.textContent = `Attachments (${task.attachments.length}/${MAX_ATTACHMENTS_PER_TASK})`;
+
+  attachmentsHeader.appendChild(attachmentsTitle);
+  details.appendChild(attachmentsHeader);
+
+  if (task.attachments.length > 0) {
+    const attachmentList = document.createElement("ul");
+    attachmentList.className = "attachment-list";
+
+    task.attachments.forEach(function (attachment) {
+      const attachmentItem = document.createElement("li");
+      attachmentItem.className = "attachment-item";
+
+      const attachmentMeta = document.createElement("div");
+      attachmentMeta.className = "attachment-meta";
+
+      const attachmentName = document.createElement("p");
+      attachmentName.className = "attachment-name";
+      attachmentName.textContent = attachment.name;
+
+      const attachmentInfo = document.createElement("p");
+      attachmentInfo.className = "attachment-info";
+      attachmentInfo.textContent = `${formatAttachmentType(attachment.type)} • ${formatFileSize(attachment.size)}`;
+
+      attachmentMeta.appendChild(attachmentName);
+      attachmentMeta.appendChild(attachmentInfo);
+
+      const attachmentActions = document.createElement("div");
+      attachmentActions.className = "attachment-actions";
+
+      const openButton = document.createElement("button");
+      openButton.type = "button";
+      openButton.className = "edit-button small-edit-button attachment-button";
+      openButton.textContent = "Open";
+      openButton.addEventListener("click", function () {
+        openTaskAttachment(attachment);
+      });
+
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "delete-button small-edit-button attachment-button";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", function () {
+        deleteTaskAttachment(task.id, attachment.path);
+      });
+
+      attachmentActions.appendChild(openButton);
+      attachmentActions.appendChild(deleteButton);
+
+      attachmentItem.appendChild(attachmentMeta);
+      attachmentItem.appendChild(attachmentActions);
+      attachmentList.appendChild(attachmentItem);
+    });
+
+    details.appendChild(attachmentList);
+  } else {
+    const noAttachments = document.createElement("p");
+    noAttachments.className = "detail-text";
+    noAttachments.textContent = "No attachments uploaded.";
+    details.appendChild(noAttachments);
+  }
+
+  if (task.attachments.length < MAX_ATTACHMENTS_PER_TASK) {
+    const attachmentUploadLabel = document.createElement("label");
+    attachmentUploadLabel.className = "detail-text";
+    attachmentUploadLabel.textContent = "Add PDF or JPEG attachments";
+
+    const attachmentUploadInput = document.createElement("input");
+    attachmentUploadInput.type = "file";
+    attachmentUploadInput.accept = ".pdf,.jpg,.jpeg,application/pdf,image/jpeg";
+    attachmentUploadInput.multiple = true;
+    attachmentUploadInput.className = "file-input";
+    attachmentUploadInput.addEventListener("change", function (event) {
+      addTaskAttachments(task.id, event.target.files || []);
+      attachmentUploadInput.value = "";
+    });
+
+    const attachmentHelp = document.createElement("p");
+    attachmentHelp.className = "detail-text";
+    attachmentHelp.textContent = `Up to ${MAX_ATTACHMENTS_PER_TASK} files total, 5 MB max each.`;
+
+    details.appendChild(attachmentUploadLabel);
+    details.appendChild(attachmentUploadInput);
+    details.appendChild(attachmentHelp);
+  }
 
   const actionHeader = document.createElement("div");
   actionHeader.className = "details-header";
@@ -974,10 +1112,16 @@ async function saveTask(task) {
   if (result.error) {
     showAppMessage(`Could not update task: ${result.error.message}`);
     window.alert(`Could not update task: ${result.error.message}`);
+    return false;
   }
+
+  return true;
 }
 
 async function deleteTask(taskId) {
+  const taskToDelete = tasks.find(function (task) {
+    return task.id === taskId;
+  });
   const result = await supabaseClient.from("tasks").delete().eq("id", taskId);
 
   if (result.error) {
@@ -990,6 +1134,9 @@ async function deleteTask(taskId) {
   tasks = tasks.filter(function (task) {
     return task.id !== taskId;
   });
+  if (taskToDelete && taskToDelete.attachments.length > 0) {
+    await deleteAttachmentsFromStorage(taskToDelete.attachments);
+  }
   pinnedFocusTaskIds = pinnedFocusTaskIds.filter(function (id) {
     return id !== taskId;
   });
@@ -1114,6 +1261,58 @@ function formatTimelineEntry(entry) {
   return `${entry.text} - ${formatTimelineTime(entry.time)}`;
 }
 
+function validateAttachmentFiles(fileList, existingCount) {
+  if (existingCount + fileList.length > MAX_ATTACHMENTS_PER_TASK) {
+    return `You can upload up to ${MAX_ATTACHMENTS_PER_TASK} attachments per task.`;
+  }
+
+  for (const file of fileList) {
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
+      return "Only PDF and JPEG files are allowed.";
+    }
+
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      return "Each attachment must be 5 MB or smaller.";
+    }
+  }
+
+  return "";
+}
+
+function normalizeAttachmentList(files) {
+  return Array.isArray(files)
+    ? files
+        .filter(function (file) {
+          return file && file.name && file.path;
+        })
+        .slice(0, MAX_ATTACHMENTS_PER_TASK)
+    : [];
+}
+
+function formatFileSize(size) {
+  if (!size) {
+    return "0 KB";
+  }
+
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function formatAttachmentType(type) {
+  if (type === "application/pdf") {
+    return "PDF";
+  }
+
+  if (type === "image/jpeg") {
+    return "JPEG";
+  }
+
+  return "File";
+}
+
 function getVisibleTimelineEntries(task) {
   return task.timeline.filter(function (entry) {
     return !(entry && entry.systemType);
@@ -1183,6 +1382,9 @@ function getVisibleTasks() {
         formatRecurrenceRule(task.recurrenceRule),
         task.dueDate,
         task.dueTime,
+        task.attachments.map(function (attachment) {
+          return attachment.name;
+        }).join(" "),
         task.actionRemarks.join(" "),
       ];
 
@@ -1242,6 +1444,7 @@ function normalizeTask(task) {
     : [createTimelineEntry("Task record created")];
   const recurrenceConfig = getSystemTimelineEntry(timeline, "recurrence-config");
   const recurrenceState = getSystemTimelineEntry(timeline, "recurrence-state");
+  const attachmentsConfig = getSystemTimelineEntry(timeline, "attachments-meta");
 
   return {
     id: task.id || crypto.randomUUID(),
@@ -1259,6 +1462,8 @@ function normalizeTask(task) {
     recurrenceLastGeneratedAt: recurrenceState && recurrenceState.generatedAt
       ? recurrenceState.generatedAt
       : "",
+    attachments: normalizeAttachmentList(attachmentsConfig && attachmentsConfig.files),
+    pendingAttachmentFiles: [],
     actionRemarks: Array.isArray(task.action_remarks)
       ? task.action_remarks.slice(0, 3)
       : Array.isArray(task.actionRemarks)
@@ -1331,6 +1536,12 @@ function buildPersistedTimeline(task) {
     task.recurrenceRule !== "none" && task.recurrenceLastGeneratedAt
       ? { generatedAt: task.recurrenceLastGeneratedAt }
       : null
+  );
+
+  timeline = upsertSystemTimelineEntry(
+    timeline,
+    "attachments-meta",
+    task.attachments.length > 0 ? { files: task.attachments } : null
   );
 
   return timeline;
@@ -1734,6 +1945,139 @@ function calculateNextRecurringDeadline(task) {
   }
 
   return null;
+}
+
+async function uploadAttachmentFilesForTask(task, files) {
+  const fileList = Array.from(files || []);
+  const validationError = validateAttachmentFiles(fileList, task.attachments.length);
+
+  if (validationError) {
+    showAppMessage(validationError);
+    window.alert(validationError);
+    return null;
+  }
+
+  const uploadedAttachments = [];
+
+  for (const file of fileList) {
+    const filePath = `${currentUser.id}/${task.id}/${Date.now()}-${sanitizeAttachmentName(file.name)}`;
+    const result = await supabaseClient.storage
+      .from(ATTACHMENTS_BUCKET_NAME)
+      .upload(filePath, file, { upsert: false });
+
+    if (result.error) {
+      await deleteAttachmentsFromStorage(uploadedAttachments);
+      showAppMessage(`Could not upload attachment: ${result.error.message}`);
+      window.alert(`Could not upload attachment: ${result.error.message}`);
+      return null;
+    }
+
+    uploadedAttachments.push({
+      name: file.name,
+      path: filePath,
+      size: file.size,
+      type: file.type,
+    });
+  }
+
+  return uploadedAttachments;
+}
+
+async function addTaskAttachments(taskId, files) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
+  });
+
+  if (!task) {
+    return;
+  }
+
+  const uploadedAttachments = await uploadAttachmentFilesForTask(task, files);
+
+  if (!uploadedAttachments) {
+    return;
+  }
+
+  const previousAttachments = task.attachments.slice();
+  task.attachments = previousAttachments.concat(uploadedAttachments);
+  task.timeline.unshift(createTimelineEntry(`${uploadedAttachments.length} attachment${uploadedAttachments.length === 1 ? "" : "s"} uploaded`));
+  const saved = await saveTask(task);
+  if (!saved) {
+    task.attachments = previousAttachments;
+    await deleteAttachmentsFromStorage(uploadedAttachments);
+    return;
+  }
+  renderTasks();
+}
+
+async function openTaskAttachment(attachment) {
+  const result = await supabaseClient.storage
+    .from(ATTACHMENTS_BUCKET_NAME)
+    .createSignedUrl(attachment.path, 60);
+
+  if (result.error || !result.data || !result.data.signedUrl) {
+    const message = `Could not open attachment${result.error ? `: ${result.error.message}` : "."}`;
+    showAppMessage(message);
+    window.alert(message);
+    return;
+  }
+
+  window.open(result.data.signedUrl, "_blank", "noopener,noreferrer");
+}
+
+async function deleteTaskAttachment(taskId, attachmentPath) {
+  const task = tasks.find(function (savedTask) {
+    return savedTask.id === taskId;
+  });
+
+  if (!task) {
+    return;
+  }
+
+  const attachment = task.attachments.find(function (file) {
+    return file.path === attachmentPath;
+  });
+
+  if (!attachment) {
+    return;
+  }
+
+  const storageResult = await supabaseClient.storage
+    .from(ATTACHMENTS_BUCKET_NAME)
+    .remove([attachment.path]);
+
+  if (storageResult.error) {
+    showAppMessage(`Could not delete attachment: ${storageResult.error.message}`);
+    window.alert(`Could not delete attachment: ${storageResult.error.message}`);
+    return;
+  }
+
+  task.attachments = task.attachments.filter(function (file) {
+    return file.path !== attachmentPath;
+  });
+  task.timeline.unshift(createTimelineEntry("Attachment deleted"));
+  const saved = await saveTask(task);
+  if (!saved) {
+    task.attachments = [attachment].concat(task.attachments);
+    return;
+  }
+  renderTasks();
+}
+
+async function deleteAttachmentsFromStorage(attachments) {
+  if (!attachments || attachments.length === 0) {
+    return;
+  }
+
+  await supabaseClient.storage
+    .from(ATTACHMENTS_BUCKET_NAME)
+    .remove(attachments.map(function (attachment) {
+      return attachment.path;
+    }));
+}
+
+function sanitizeAttachmentName(fileName) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
 function readPinnedFocusTaskIds() {

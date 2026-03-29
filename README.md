@@ -18,6 +18,7 @@ This is a very small personal task management web app made with:
 - Add one remark and up to 3 action remarks
 - Add hierarchy like `Work > Project > Task`
 - Set recurring tasks like daily, weekdays, weekly, or monthly
+- Upload up to 5 PDF or JPEG attachments per task, max 5 MB each
 - Import many tasks at once from Excel-saved CSV
 - Sign up and log in with email and password
 - Sync the same tasks on iPhone and Mac
@@ -113,13 +114,49 @@ for delete
 using (auth.uid() = user_id);
 ```
 
-### 4. Allow email login
+### 4. Create the attachments storage bucket
+
+Run this in SQL Editor:
+
+```sql
+insert into storage.buckets (id, name, public)
+values ('task-attachments', 'task-attachments', false)
+on conflict (id) do nothing;
+
+create policy "Users can view their own task attachments"
+on storage.objects
+for select
+using (
+  bucket_id = 'task-attachments'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Users can upload their own task attachments"
+on storage.objects
+for insert
+with check (
+  bucket_id = 'task-attachments'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Users can delete their own task attachments"
+on storage.objects
+for delete
+using (
+  bucket_id = 'task-attachments'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+```
+
+This app stores only attachment metadata inside the task record. The real PDF and JPEG files are saved in Supabase Storage.
+
+### 5. Allow email login
 
 1. In Supabase, open `Authentication`
 2. Open `Providers`
 3. Make sure `Email` is enabled
 
-### 5. Add your project keys to the app
+### 6. Add your project keys to the app
 
 1. In Supabase, open `Project Settings`
 2. Open `API`
@@ -176,6 +213,8 @@ The simplest way is:
 3. Save the file as `CSV`
 4. In the app, use `Bulk Import From Excel`
 5. Select the CSV file
+
+Attachment upload is done directly inside the task form and task details view, not through CSV import.
 
 Example:
 
