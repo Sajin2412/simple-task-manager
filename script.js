@@ -36,6 +36,7 @@ const taskReminderEnabledInput = document.getElementById("task-reminder-enabled"
 const taskDescriptionInput = document.getElementById("task-description");
 const taskRemarkInput = document.getElementById("task-remark");
 const taskHierarchyInput = document.getElementById("task-hierarchy");
+const taskRecurrenceInput = document.getElementById("task-recurrence");
 const taskActionRemark1Input = document.getElementById("task-action-remark-1");
 const taskActionRemark2Input = document.getElementById("task-action-remark-2");
 const taskActionRemark3Input = document.getElementById("task-action-remark-3");
@@ -222,6 +223,8 @@ function createTask(taskData) {
     description: taskData.description || "",
     remark: taskData.remark || "",
     hierarchy: taskData.hierarchy || "",
+    recurrenceRule: normalizeRecurrenceRule(taskData.recurrenceRule) || "none",
+    recurrenceLastGeneratedAt: "",
     actionRemarks: Array.isArray(taskData.actionRemarks) ? taskData.actionRemarks.slice(0, 3) : [],
     completed: false,
     timeline: [createTimelineEntry(taskData.timelineText || "Task created")],
@@ -237,6 +240,7 @@ async function handleTaskSubmit(event) {
   const description = taskDescriptionInput.value.trim();
   const remark = taskRemarkInput.value.trim();
   const hierarchy = taskHierarchyInput.value.trim();
+  const recurrenceRule = taskRecurrenceInput.value;
   const actionRemarks = collectActionRemarks();
 
   if (!title || !currentUser) {
@@ -257,6 +261,7 @@ async function handleTaskSubmit(event) {
     description,
     remark,
     hierarchy,
+    recurrenceRule,
     actionRemarks,
     timelineText: "Task created",
   });
@@ -289,10 +294,12 @@ function renderTasks() {
     checkbox.className = "task-checkbox";
     checkbox.addEventListener("change", async function () {
       task.completed = checkbox.checked;
-      task.timeline.unshift(
-        createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active")
-      );
+      const timelineEntry = createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active");
+      task.timeline.unshift(timelineEntry);
       await saveTask(task);
+      if (task.completed) {
+        await maybeCreateNextRecurringTask(task, timelineEntry.time);
+      }
       renderTasks();
     });
 
@@ -322,6 +329,10 @@ function renderTasks() {
 
     if (task.reminderEnabled && task.dueDate && task.dueTime) {
       meta.appendChild(createBadge("badge reminder", "Reminder: 15 min before"));
+    }
+
+    if (task.recurrenceRule !== "none") {
+      meta.appendChild(createBadge("badge recurrence", `Repeats: ${formatRecurrenceRule(task.recurrenceRule)}`));
     }
 
     if (isTaskOverdue(task)) {
@@ -356,10 +367,12 @@ function renderTasks() {
     completeButton.textContent = task.completed ? "Mark Active" : "Complete";
     completeButton.addEventListener("click", async function () {
       task.completed = !task.completed;
-      task.timeline.unshift(
-        createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active")
-      );
+      const timelineEntry = createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active");
+      task.timeline.unshift(timelineEntry);
       await saveTask(task);
+      if (task.completed) {
+        await maybeCreateNextRecurringTask(task, timelineEntry.time);
+      }
       renderTasks();
     });
 
