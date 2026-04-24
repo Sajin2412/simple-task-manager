@@ -125,8 +125,13 @@ async function initializeApp() {
   updateReminderButton();
   startReminderChecker();
 
-  const sessionResult = await supabaseClient.auth.getSession();
-  await applySession(sessionResult.data.session);
+  try {
+    const sessionResult = await supabaseClient.auth.getSession();
+    await applySession(sessionResult.data.session);
+  } catch (error) {
+    authMessage.textContent = formatNetworkErrorMessage(error);
+    return;
+  }
 
   supabaseClient.auth.onAuthStateChange(function (_event, session) {
     applySession(session);
@@ -171,6 +176,11 @@ async function handleAuthSubmit(event) {
 
   if (!email || !password) {
     authMessage.textContent = "Please enter email and password.";
+    return;
+  }
+
+  if (window.location.protocol === "file:") {
+    authMessage.textContent = "Login is blocked in file mode. Start a local server with: python3 -m http.server 8000 and open http://localhost:8000";
     return;
   }
 
