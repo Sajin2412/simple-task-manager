@@ -83,6 +83,10 @@ async function initializeApp() {
     return;
   }
 
+  if (window.location.protocol === "file:") {
+    authMessage.textContent = "Open this app with http://localhost:8000 instead of double-clicking index.html. Run: python3 -m http.server 8000";
+  }
+
   supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
   authForm.addEventListener("submit", handleAuthSubmit);
@@ -174,14 +178,19 @@ async function handleAuthSubmit(event) {
 
   let result;
 
-  if (mode === "signup") {
-    result = await supabaseClient.auth.signUp({ email, password });
-  } else {
-    result = await supabaseClient.auth.signInWithPassword({ email, password });
+  try {
+    if (mode === "signup") {
+      result = await supabaseClient.auth.signUp({ email, password });
+    } else {
+      result = await supabaseClient.auth.signInWithPassword({ email, password });
+    }
+  } catch (error) {
+    authMessage.textContent = formatNetworkErrorMessage(error);
+    return;
   }
 
   if (result.error) {
-    authMessage.textContent = result.error.message;
+    authMessage.textContent = formatNetworkErrorMessage(result.error);
     return;
   }
 
@@ -2482,6 +2491,24 @@ function showAppMessage(message) {
 function clearAppMessage() {
   appMessage.textContent = "";
   appMessage.hidden = true;
+}
+
+function formatNetworkErrorMessage(error) {
+  const errorMessage = error && error.message ? String(error.message) : "";
+
+  if (window.location.protocol === "file:") {
+    return "Network connection failed. Open the app with http://localhost:8000 instead of file:// and try again.";
+  }
+
+  if (
+    errorMessage.includes("NetworkError") ||
+    errorMessage.includes("Failed to fetch") ||
+    errorMessage.includes("fetch")
+  ) {
+    return "Could not reach Supabase. Check your internet connection, confirm the Supabase project is active, and try again.";
+  }
+
+  return errorMessage || "Something went wrong while connecting to Supabase.";
 }
 
 if ("serviceWorker" in navigator) {
