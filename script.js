@@ -795,7 +795,7 @@ function exportTaskReport() {
       <head>
         <meta charset="UTF-8">
         <meta name="ProgId" content="Excel.Sheet">
-        <meta name="Generator" content="Sajin Task Management">
+        <meta name="Generator" content="Kaushik Task Management">
         <style>
           table { border-collapse: collapse; width: 100%; }
           th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
@@ -805,7 +805,7 @@ function exportTaskReport() {
         </style>
       </head>
       <body>
-        <div class="sheet-title">Sajin Task Management Report</div>
+        <div class="sheet-title">Kaushik Task Management Report</div>
         <div class="section-title">Dashboard Summary</div>
         <table>
           <thead>
@@ -855,7 +855,7 @@ function exportTaskReport() {
   const fileDate = buildFileDate(now);
 
   downloadLink.href = url;
-  downloadLink.download = `sini-task-report-${fileDate}.xls`;
+  downloadLink.download = `kaushik-task-report-${fileDate}.xls`;
   document.body.appendChild(downloadLink);
   downloadLink.click();
   document.body.removeChild(downloadLink);
@@ -2203,7 +2203,7 @@ function getPinnedFocusStorageKey() {
     return "";
   }
 
-  return `sajin-focus-pins-${currentUser.id}`;
+  return `kaushik-focus-pins-${currentUser.id}`;
 }
 
 function parseActionRemarks(value) {
