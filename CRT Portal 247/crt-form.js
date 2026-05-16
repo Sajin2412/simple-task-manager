@@ -61,6 +61,7 @@ const questions = [
     label: "Upload CRT Supporting Document",
     type: "file",
     icon: "⇪",
+    maxSizeMb: 8,
     required: true,
   },
   {
@@ -81,6 +82,7 @@ const questions = [
 
 let currentStep = 0;
 let formData = {};
+let isCompleted = false;
 
 prevButton.addEventListener("click", goToPreviousStep);
 nextButton.addEventListener("click", goToNextStep);
@@ -211,19 +213,24 @@ function renderReview() {
   return list;
 }
 
-function goToPreviousStep() {
-  saveCurrentValue();
+async function goToPreviousStep() {
+  await saveCurrentValue({ validateRequired: false });
   currentStep = Math.max(0, currentStep - 1);
   renderQuestion();
 }
 
-function goToNextStep() {
-  if (!saveCurrentValue()) {
+async function goToNextStep() {
+  if (isCompleted) {
+    resetForm();
+    return;
+  }
+
+  if (!(await saveCurrentValue({ validateRequired: true }))) {
     return;
   }
 
   if (currentStep === questions.length - 1) {
-    showSuccess();
+    await submitEntry();
     return;
   }
 
@@ -231,21 +238,43 @@ function goToNextStep() {
   renderQuestion();
 }
 
-function saveCurrentValue() {
+async function saveCurrentValue(options) {
   const question = questions[currentStep];
+  const shouldValidateRequired = !options || options.validateRequired !== false;
 
   if (question.type === "review") {
     return true;
   }
 
   const input = document.getElementById(question.id);
-  const value = question.type === "file"
-    ? input.files && input.files[0]
-      ? input.files[0].name
-      : formData[question.id] || ""
-    : input.value.trim();
+  let value = input.value.trim();
 
-  if (question.required && !value) {
+  if (question.type === "file") {
+    const file = input.files && input.files[0] ? input.files[0] : null;
+
+    if (!file && formData[question.id]) {
+      return true;
+    }
+
+    if (!file) {
+      value = "";
+    } else {
+      const maxBytes = (question.maxSizeMb || 8) * 1024 * 1024;
+
+      if (file.size > maxBytes) {
+        showValidation(`Please upload a file up to ${question.maxSizeMb || 8} MB.`);
+        return false;
+      }
+
+      const fileData = await readFileAsBase64(file);
+      formData.document = file.name;
+      formData.documentMimeType = file.type || "application/octet-stream";
+      formData.documentBase64 = fileData.base64;
+      value = file.name;
+    }
+  }
+
+  if (shouldValidateRequired && question.required && !value) {
     showValidation("Please fill this field before moving next.");
     return false;
   }
@@ -255,7 +284,10 @@ function saveCurrentValue() {
     return false;
   }
 
-  formData[question.id] = value;
+  if (question.type !== "file") {
+    formData[question.id] = value;
+  }
+
   return true;
 }
 
@@ -264,12 +296,64 @@ function showValidation(message) {
   validation.textContent = message;
 }
 
+async function submitEntry() {
+  const entry = {
+    submittedAt: new Date().toLocaleString(),
+    institute: formData.institute || "",
+    student: formData.student || "",
+    mobile: formData.mobile || "",
+    invoice: formData.invoice || "",
+    serial: formData.serial || "",
+    category: formData.category || "",
+    document: formData.document || "",
+    documentMimeType: formData.documentMimeType || "",
+    documentBase64: formData.documentBase64 || "",
+    remark: formData.remark || "",
+  };
+
+  nextButton.disabled = true;
+  nextButton.textContent = "Submitting...";
+
+  const submitted = await sendToGoogleSheet(entry);
+
+  if (!submitted) {
+    nextButton.disabled = false;
+    nextButton.textContent = "Submit →";
+    return;
+  }
+
+  showSuccess();
+}
+
+async function sendToGoogleSheet(entry) {
+  const googleSheetUrl = window.CRT_GOOGLE_SHEET_WEB_APP_URL || "";
+
+  if (!googleSheetUrl) {
+    showValidation("Google Sheet is not connected yet. Paste your Apps Script Web App URL in google-sheet-config.js.");
+    return false;
+  }
+
+  try {
+    await fetch(googleSheetUrl, {
+      method: "POST",
+      mode: "no-cors",
+      body: new URLSearchParams(entry),
+    });
+    return true;
+  } catch (_error) {
+    showValidation("Could not send data to Google Sheet. Please check the Apps Script Web App URL.");
+    return false;
+  }
+}
+
 function showSuccess() {
   questionArea.innerHTML = "";
   stepLabel.textContent = "Completed";
   requiredLabel.textContent = "Submitted";
   prevButton.disabled = true;
   nextButton.textContent = "New Entry →";
+  nextButton.disabled = false;
+  isCompleted = true;
 
   const title = document.createElement("p");
   title.className = "question-label";
@@ -277,15 +361,34 @@ function showSuccess() {
 
   const message = document.createElement("p");
   message.className = "success-message";
-  message.textContent = "Your CRT document upload form entry is ready for processing.";
+  message.textContent = "Your CRT document upload form entry has been sent to the online Google Sheet.";
 
   questionArea.appendChild(title);
   questionArea.appendChild(message);
+}
 
-  nextButton.onclick = function () {
-    formData = {};
-    currentStep = 0;
-    nextButton.onclick = null;
-    renderQuestion();
-  };
+function resetForm() {
+  formData = {};
+  currentStep = 0;
+  isCompleted = false;
+  renderQuestion();
+}
+
+function readFileAsBase64(file) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+
+    reader.onload = function () {
+      const result = String(reader.result || "");
+      resolve({
+        base64: result.includes(",") ? result.split(",").pop() : result,
+      });
+    };
+
+    reader.onerror = function () {
+      reject(reader.error);
+    };
+
+    reader.readAsDataURL(file);
+  });
 }
