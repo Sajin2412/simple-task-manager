@@ -7,8 +7,7 @@ body {
   min-height: 100vh;
   font-family: Arial, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(6, 182, 212, 0.16), transparent 28%),
-    linear-gradient(180deg, #f9fafb 0%, #ecfeff 100%);
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
   color: #334155;
 }
 
@@ -30,9 +29,9 @@ body {
 
 .card {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 24px;
-  box-shadow: 0 12px 30px rgba(8, 145, 178, 0.12);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
   margin-bottom: 20px;
   border: 1px solid #e5e7eb;
 }
@@ -43,9 +42,9 @@ body {
   align-items: flex-start;
   margin-bottom: 16px;
   padding: 10px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: #f8fafc;
-  border: 1px solid #dbeafe;
+  border: 1px solid #d7e0ea;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
 }
 
@@ -54,14 +53,14 @@ body {
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #06b6d4 0%, #0f766e 100%);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0f766e 0%, #1e3a5f 100%);
   color: #ffffff;
   font-size: 28px;
   font-weight: 800;
   letter-spacing: 0.16em;
   line-height: 1;
-  box-shadow: 0 12px 24px rgba(6, 182, 212, 0.18);
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.18);
   border: 2px solid rgba(255, 255, 255, 0.35);
 }
 
@@ -96,8 +95,8 @@ body {
 }
 
 .sidebar-link {
-  border: 1px solid #dbeafe;
-  border-radius: 14px;
+  border: 1px solid #d7e0ea;
+  border-radius: 8px;
   padding: 12px 14px;
   background: #f8fafc;
   color: #334155;
@@ -107,7 +106,7 @@ body {
 }
 
 .sidebar-link.active {
-  background: linear-gradient(135deg, #06b6d4 0%, #0f766e 100%);
+  background: linear-gradient(135deg, #0f766e 0%, #1e3a5f 100%);
   color: #ffffff;
   border-color: transparent;
 }
@@ -174,8 +173,7 @@ body {
 .focus-card {
   margin-bottom: 20px;
   background:
-    radial-gradient(circle at top right, rgba(6, 182, 212, 0.12), transparent 30%),
-    linear-gradient(180deg, #ffffff 0%, #f0fdfa 100%);
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .focus-toolbar {
@@ -217,7 +215,7 @@ body {
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #06b6d4 0%, #0f766e 100%);
+  background: linear-gradient(90deg, #0f766e 0%, #1e3a5f 100%);
 }
 
 .focus-list {
@@ -229,7 +227,7 @@ body {
 .focus-item {
   padding: 16px;
   border: 1px solid #cbd5e1;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
   margin-bottom: 12px;
 }
@@ -388,6 +386,10 @@ h2 {
   line-height: 1.5;
 }
 
+.auth-secondary-button {
+  margin-top: 12px;
+}
+
 .app-message {
   margin: 16px 0 0;
   padding: 12px 14px;
@@ -488,22 +490,22 @@ textarea {
   border: 0;
   border-radius: 10px;
   padding: 14px;
-  background: #06b6d4;
+  background: #0f766e;
   color: #fff;
   font-weight: 700;
   cursor: pointer;
 }
 
 .primary-button:hover {
-  background: #0891b2;
+  background: #115e59;
 }
 
 .notification-box {
   margin-top: 18px;
   padding: 16px;
   border: 1px solid #cffafe;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #ecfeff 100%);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .notification-title {
@@ -598,7 +600,7 @@ textarea {
   align-items: start;
   padding: 16px;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border-radius: 8px;
   margin-bottom: 12px;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
@@ -851,7 +853,7 @@ textarea {
   overflow-y: auto;
   background: #ffffff;
   border: 1px solid #dbeafe;
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 24px;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
 }

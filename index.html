@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sajin Task Management</title>
-  <meta name="theme-color" content="#06b6d4">
+  <title>UIPL CRT Portal</title>
+  <meta name="theme-color" content="#0f766e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Sajin Task Management">
+  <meta name="apple-mobile-web-app-title" content="UIPL CRT Portal">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
@@ -17,12 +17,12 @@
     <section id="auth-section" class="card auth-card">
       <div class="brand-lockup">
         <div class="brand-logo">
-          <span>Sajin</span>
+          <span>UIPL</span>
         </div>
-        <p class="brand-tagline">Task System</p>
+        <p class="brand-tagline">CRT Portal</p>
       </div>
-      <h1>Sajin Task Management</h1>
-      <p class="subtitle">Sign up or log in to sync the same tasks on Mac and iPhone.</p>
+      <h1>UIPL CRT Portal</h1>
+      <p class="subtitle">Sign up or log in to manage CRT cases across desktop and mobile.</p>
 
       <form id="auth-form" class="task-form">
         <label>
@@ -46,6 +46,9 @@
         <button type="submit" class="primary-button">Continue</button>
       </form>
 
+      <button id="resend-verification-button" type="button" class="edit-button auth-secondary-button" hidden>
+        Resend Verification Email
+      </button>
       <p id="auth-message" class="auth-message"></p>
     </section>
 
@@ -54,17 +57,17 @@
         <aside class="sidebar card">
           <div class="brand-lockup sidebar-brand">
             <div class="brand-logo">
-              <span>Sajin</span>
+              <span>UIPL</span>
             </div>
-            <p class="brand-tagline">Task System</p>
+            <p class="brand-tagline">CRT Portal</p>
           </div>
 
           <nav id="sidebar-nav" class="sidebar-nav" aria-label="Main menu">
             <button type="button" class="sidebar-link active" data-view="dashboard">Dashboard</button>
-            <button type="button" class="sidebar-link" data-view="add-task">Add New task</button>
+            <button type="button" class="sidebar-link" data-view="add-task">New CRT Case</button>
             <button type="button" class="sidebar-link" data-view="today-focus">Today Focus</button>
-            <button type="button" class="sidebar-link" data-view="all-tasks">All Tasks</button>
-            <button type="button" class="sidebar-link" data-view="recurring-tasks">Recurring Tasks</button>
+            <button type="button" class="sidebar-link" data-view="all-tasks">All Cases</button>
+            <button type="button" class="sidebar-link" data-view="recurring-tasks">Recurring Cases</button>
             <button type="button" class="sidebar-link" data-view="completed-tasks">Completed</button>
             <button id="sidebar-logout-button" type="button" class="sidebar-link sidebar-link-logout">Log out</button>
           </nav>
@@ -87,7 +90,7 @@
               <div class="toolbar summary-toolbar">
                 <div class="list-header">
                   <h2>Dashboard Summary</h2>
-                  <span class="task-count">Download the task report as an Excel sheet</span>
+                  <span class="task-count">Download the CRT case report as an Excel sheet</span>
                 </div>
 
                 <button id="export-report-button" type="button" class="edit-button export-button">
@@ -97,7 +100,7 @@
 
               <div class="summary-grid">
               <article class="card summary-card">
-                <p class="summary-label">Total Tasks</p>
+                <p class="summary-label">Total Cases</p>
                 <p id="summary-total" class="summary-value">0</p>
               </article>
 
@@ -135,9 +138,9 @@
                 <div class="list-header focus-header">
                   <div>
                     <h2>Today Focus</h2>
-                    <p class="focus-subtitle">Overdue, due today, and pinned tasks in one place.</p>
+                    <p class="focus-subtitle">Overdue, due today, and pinned CRT cases in one place.</p>
                   </div>
-                  <span id="focus-count" class="task-count">0 focus tasks</span>
+                  <span id="focus-count" class="task-count">0 focus cases</span>
                 </div>
 
                 <div class="focus-progress">
@@ -149,7 +152,7 @@
               </div>
 
               <ul id="focus-list" class="focus-list"></ul>
-              <p id="focus-empty" class="empty-state">No focus tasks right now.</p>
+              <p id="focus-empty" class="empty-state">No focus cases right now.</p>
             </section>
           </section>
 
@@ -157,27 +160,27 @@
             <section class="card">
             <div class="brand-lockup">
               <div class="brand-logo">
-                <span>Sajin</span>
+                <span>UIPL</span>
               </div>
-              <p class="brand-tagline">Task System</p>
+              <p class="brand-tagline">CRT Portal</p>
             </div>
-            <h1>Sajin Task Management</h1>
-            <p class="subtitle">A simple place to keep track of your tasks.</p>
+            <h1>New CRT Case</h1>
+            <p class="subtitle">Capture requests, follow-ups, and closure details for UIPL CRT work.</p>
 
             <form id="task-form" class="task-form">
         <label>
-          Task name
+          Case title
           <input
             id="task-title"
             type="text"
-            placeholder="Example: Pay electricity bill"
+            placeholder="Example: Vendor payment follow-up"
             required
           >
         </label>
 
         <div class="form-row">
           <label>
-            Priority
+            Severity
             <select id="task-priority">
               <option value="High">High</option>
               <option value="Medium" selected>Medium</option>
@@ -186,14 +189,14 @@
           </label>
 
           <label>
-            Due date
+            Target date
             <input id="task-due-date" type="date" required>
           </label>
         </div>
 
         <div class="form-row">
           <label>
-            Due time
+            Target time
             <input id="task-due-time" type="time" required>
           </label>
 
@@ -201,7 +204,7 @@
             <span>Reminder</span>
             <div class="checkbox-row">
               <input id="task-reminder-enabled" type="checkbox" checked>
-              <span>Notify me 15 minutes before deadline</span>
+              <span>Notify me 15 minutes before target time</span>
             </div>
           </label>
         </div>
@@ -211,26 +214,26 @@
           <textarea
             id="task-description"
             rows="4"
-            placeholder="Write full details about this task"
+            placeholder="Write full details about this case"
             required
           ></textarea>
         </label>
 
         <label>
-          Remark
+          CRT Remark
           <input
             id="task-remark"
             type="text"
-            placeholder="Example: Check before Friday"
+            placeholder="Example: Awaiting vendor confirmation"
           >
         </label>
 
         <label>
-          Hierarchy
+          Department / Process
           <input
             id="task-hierarchy"
             type="text"
-            placeholder="Example: Work > Accounts > Rent"
+            placeholder="Example: Finance > Accounts Payable > Vendor"
           >
         </label>
 
@@ -257,19 +260,19 @@
         </label>
 
         <fieldset class="remarks-group">
-          <legend>Action Remarks (up to 3)</legend>
-          <input id="task-action-remark-1" type="text" placeholder="Action remark 1">
-          <input id="task-action-remark-2" type="text" placeholder="Action remark 2">
-          <input id="task-action-remark-3" type="text" placeholder="Action remark 3">
+        <legend>Action Notes (up to 3)</legend>
+          <input id="task-action-remark-1" type="text" placeholder="Action note 1">
+          <input id="task-action-remark-2" type="text" placeholder="Action note 2">
+          <input id="task-action-remark-3" type="text" placeholder="Action note 3">
         </fieldset>
 
-        <button type="submit" class="primary-button">Add Task</button>
+        <button type="submit" class="primary-button">Add Case</button>
             </form>
 
             <div class="notification-box">
               <p class="notification-title">Browser reminders</p>
               <p class="notification-text">
-                Turn on notifications to get a reminder 15 minutes before a task deadline while this app is open.
+                Turn on notifications to get a reminder 15 minutes before a case target time while this app is open.
               </p>
               <button id="enable-reminders" type="button" class="edit-button notification-button">
                 Enable Notifications
@@ -279,7 +282,7 @@
             <div class="notification-box">
               <p class="notification-title">Bulk Import From Excel</p>
               <p class="notification-text">
-                Prepare tasks in Excel, save the sheet as CSV, then import them here.
+                Prepare CRT cases in Excel, save the sheet as CSV, then import them here.
               </p>
               <input id="csv-import" type="file" accept=".csv" class="file-input">
               <p class="import-help">
@@ -295,8 +298,8 @@
             <section class="card">
             <div class="toolbar">
               <div class="list-header">
-                <h2 id="task-list-heading">All Tasks</h2>
-                <span id="task-count" class="task-count">0 tasks</span>
+                <h2 id="task-list-heading">All Cases</h2>
+                <span id="task-count" class="task-count">0 cases</span>
               </div>
 
               <div class="task-controls">
@@ -340,7 +343,7 @@
             <ul id="task-list" class="task-list"></ul>
 
             <p id="empty-state" class="empty-state">
-              No tasks to show right now.
+              No cases to show right now.
             </p>
             </section>
           </section>
@@ -354,14 +357,14 @@
       <button id="task-confirm-close" type="button" class="modal-close-button" aria-label="Close dialog">
         X
       </button>
-      <h2 id="task-confirm-title">Confirm New Task</h2>
-      <p class="subtitle modal-subtitle">Please check the task summary before saving.</p>
+      <h2 id="task-confirm-title">Confirm New Case</h2>
+      <p class="subtitle modal-subtitle">Please check the case summary before saving.</p>
 
       <div id="task-confirm-summary" class="confirm-summary"></div>
 
       <div class="modal-actions">
         <button id="task-confirm-cancel" type="button" class="edit-button">Cancel</button>
-        <button id="task-confirm-save" type="button" class="primary-button">Save Task</button>
+        <button id="task-confirm-save" type="button" class="primary-button">Save Case</button>
       </div>
     </div>
   </div>

@@ -5,6 +5,7 @@ const authEmailInput = document.getElementById("auth-email");
 const authPasswordInput = document.getElementById("auth-password");
 const authModeSelect = document.getElementById("auth-mode");
 const authMessage = document.getElementById("auth-message");
+const resendVerificationButton = document.getElementById("resend-verification-button");
 const userEmail = document.getElementById("user-email");
 const appMessage = document.getElementById("app-message");
 const sidebarNav = document.getElementById("sidebar-nav");
@@ -72,6 +73,7 @@ let activeSort = "newest";
 let activeSidebarView = "dashboard";
 let pinnedFocusTaskIds = [];
 let pendingTaskDraft = null;
+let pendingVerificationEmail = "";
 
 initializeApp();
 
@@ -90,6 +92,7 @@ async function initializeApp() {
   supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
   authForm.addEventListener("submit", handleAuthSubmit);
+  resendVerificationButton.addEventListener("click", handleResendVerificationEmail);
   sidebarNav.addEventListener("click", handleSidebarNavigation);
   sidebarLogoutButton.addEventListener("click", handleLogout);
   taskForm.addEventListener("submit", handleTaskSubmit);
@@ -150,6 +153,7 @@ async function applySession(session) {
     pinnedFocusTaskIds = [];
     activeSidebarView = "dashboard";
     clearAppMessage();
+    updateVerificationUi();
     renderTasks();
     return;
   }
@@ -176,6 +180,7 @@ async function handleAuthSubmit(event) {
 
   if (!email || !password) {
     authMessage.textContent = "Please enter email and password.";
+    updateVerificationUi("");
     return;
   }
 
@@ -201,16 +206,53 @@ async function handleAuthSubmit(event) {
 
   if (result.error) {
     authMessage.textContent = formatNetworkErrorMessage(result.error);
+    if (isEmailVerificationPendingError(result.error.message)) {
+      updateVerificationUi(email);
+    }
     return;
   }
 
   if (mode === "signup" && !result.data.session) {
-    authMessage.textContent = "Signup successful. Please check your email if confirmation is enabled.";
+    authMessage.textContent = "Signup successful. Please check your email and click the verification link before logging in.";
+    updateVerificationUi(email);
     return;
   }
 
   authMessage.textContent = "";
+  updateVerificationUi("");
   authForm.reset();
+}
+
+async function handleResendVerificationEmail() {
+  if (!supabaseClient || !pendingVerificationEmail) {
+    authMessage.textContent = "Enter your email first, then try again.";
+    return;
+  }
+
+  if (window.location.protocol === "file:") {
+    authMessage.textContent = "Resend works best from http://localhost:8000. Start a local server and try again.";
+    return;
+  }
+
+  authMessage.textContent = "Sending verification email...";
+
+  const resendOptions = {};
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    resendOptions.emailRedirectTo = window.location.href;
+  }
+
+  const result = await supabaseClient.auth.resend({
+    type: "signup",
+    email: pendingVerificationEmail,
+    options: resendOptions,
+  });
+
+  if (result.error) {
+    authMessage.textContent = formatNetworkErrorMessage(result.error);
+    return;
+  }
+
+  authMessage.textContent = `Verification email sent again to ${pendingVerificationEmail}. Check inbox, spam, and promotions.`;
 }
 
 async function handleLogout() {
@@ -232,15 +274,15 @@ async function loadTasks() {
     .order("created_at", { ascending: false });
 
   if (result.error) {
-    showAppMessage(`Could not load tasks: ${result.error.message}`);
+    showAppMessage(`Could not load cases: ${result.error.message}`);
     emptyState.hidden = false;
-    emptyState.textContent = "Could not load tasks. Please check Supabase setup.";
+    emptyState.textContent = "Could not load cases. Please check Supabase setup.";
     return;
   }
 
   tasks = result.data.map(normalizeTask);
   clearAppMessage();
-  emptyState.textContent = "No tasks to show right now.";
+  emptyState.textContent = "No cases to show right now.";
   renderTasks();
 }
 
@@ -263,7 +305,7 @@ function createTask(taskData) {
     pendingAttachmentFiles: Array.isArray(taskData.pendingAttachmentFiles) ? taskData.pendingAttachmentFiles.slice(0, MAX_ATTACHMENTS_PER_TASK) : [],
     actionRemarks: Array.isArray(taskData.actionRemarks) ? taskData.actionRemarks.slice(0, 3) : [],
     completed: false,
-    timeline: [createTimelineEntry(taskData.timelineText || "Task created")],
+    timeline: [createTimelineEntry(taskData.timelineText || "Case created")],
   };
 }
 
@@ -307,7 +349,7 @@ async function handleTaskSubmit(event) {
     recurrenceRule,
     pendingAttachmentFiles,
     actionRemarks,
-    timelineText: "Task created",
+    timelineText: "Case created",
   });
   openTaskConfirmModal(newTask);
 }
@@ -339,7 +381,7 @@ function renderTasks() {
     checkbox.className = "task-checkbox";
     checkbox.addEventListener("change", async function () {
       task.completed = checkbox.checked;
-      const timelineEntry = createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active");
+      const timelineEntry = createTimelineEntry(task.completed ? "Case closed" : "Case reopened");
       task.timeline.unshift(timelineEntry);
       await saveTask(task);
       if (task.completed) {
@@ -361,13 +403,13 @@ function renderTasks() {
     const meta = document.createElement("div");
     meta.className = "task-meta";
 
-    meta.appendChild(createBadge(`badge priority-${task.priority.toLowerCase()}`, `${task.priority} Priority`));
+    meta.appendChild(createBadge(`badge priority-${task.priority.toLowerCase()}`, `${task.priority} Severity`));
 
     if (task.dueDate) {
       meta.appendChild(
         createBadge(
           "badge due-date",
-          `Due: ${formatDate(task.dueDate)}${task.dueTime ? `, ${formatTime(task.dueTime)}` : ""}`
+          `Target: ${formatDate(task.dueDate)}${task.dueTime ? `, ${formatTime(task.dueTime)}` : ""}`
         )
       );
     }
@@ -396,7 +438,7 @@ function renderTasks() {
     }
 
     if (task.hierarchy) {
-      meta.appendChild(createBadge("badge hierarchy", `Hierarchy: ${task.hierarchy}`));
+      meta.appendChild(createBadge("badge hierarchy", `Department: ${task.hierarchy}`));
     }
 
     content.appendChild(title);
@@ -418,10 +460,10 @@ function renderTasks() {
     const completeButton = document.createElement("button");
     completeButton.type = "button";
     completeButton.className = "edit-button";
-    completeButton.textContent = task.completed ? "Mark Active" : "Complete";
+    completeButton.textContent = task.completed ? "Reopen" : "Close";
     completeButton.addEventListener("click", async function () {
       task.completed = !task.completed;
-      const timelineEntry = createTimelineEntry(task.completed ? "Marked as completed" : "Marked as active");
+      const timelineEntry = createTimelineEntry(task.completed ? "Case closed" : "Case reopened");
       task.timeline.unshift(timelineEntry);
       await saveTask(task);
       if (task.completed) {
@@ -465,21 +507,21 @@ function setSidebarView(view) {
   if (view === "all-tasks") {
     activeFilter = "all";
     taskFilter.value = "all";
-    taskListHeading.textContent = "All Tasks";
+    taskListHeading.textContent = "All Cases";
   } else if (view === "recurring-tasks") {
     activeFilter = "all";
     taskFilter.value = "all";
-    taskListHeading.textContent = "Recurring Tasks";
+    taskListHeading.textContent = "Recurring Cases";
   } else if (view === "completed-tasks") {
     activeFilter = "completed";
     taskFilter.value = "completed";
-    taskListHeading.textContent = "Completed Tasks";
+    taskListHeading.textContent = "Closed Cases";
   } else if (view === "today-focus") {
-    taskListHeading.textContent = "All Tasks";
+    taskListHeading.textContent = "All Cases";
   } else if (view === "add-task") {
-    taskListHeading.textContent = "All Tasks";
+    taskListHeading.textContent = "All Cases";
   } else {
-    taskListHeading.textContent = "All Tasks";
+    taskListHeading.textContent = "All Cases";
   }
 
   updateSidebarState();
@@ -514,7 +556,7 @@ function renderFocusSection() {
     ? 0
     : Math.round((completedFocusTasks / focusTasks.length) * 100);
 
-  focusCount.textContent = `${focusTasks.length} focus task${focusTasks.length === 1 ? "" : "s"}`;
+  focusCount.textContent = `${focusTasks.length} focus case${focusTasks.length === 1 ? "" : "s"}`;
   focusProgressLabel.textContent = `${completedFocusTasks} of ${focusTasks.length} done`;
   focusProgressBar.style.width = `${focusPercent}%`;
 
@@ -544,7 +586,7 @@ function renderFocusSection() {
 
     const badges = document.createElement("div");
     badges.className = "task-meta";
-    badges.appendChild(createBadge(`badge priority-${task.priority.toLowerCase()}`, `${task.priority} Priority`));
+    badges.appendChild(createBadge(`badge priority-${task.priority.toLowerCase()}`, `${task.priority} Severity`));
 
     if (isTaskOverdue(task)) {
       badges.appendChild(createBadge("badge overdue", "Overdue"));
@@ -654,17 +696,17 @@ function openTaskConfirmModal(task) {
   taskConfirmSummary.innerHTML = "";
 
   [
-    ["Task Name", task.title],
-    ["Priority", task.priority],
-    ["Due Date", task.dueDate ? formatDate(task.dueDate) : "Not set"],
-    ["Due Time", task.dueTime ? formatTime(task.dueTime) : "Not set"],
-    ["Reminder", task.reminderEnabled ? "15 minutes before deadline" : "Off"],
+    ["Case Title", task.title],
+    ["Severity", task.priority],
+    ["Target Date", task.dueDate ? formatDate(task.dueDate) : "Not set"],
+    ["Target Time", task.dueTime ? formatTime(task.dueTime) : "Not set"],
+    ["Reminder", task.reminderEnabled ? "15 minutes before target time" : "Off"],
     ["Repeat", formatRecurrenceRule(task.recurrenceRule)],
     ["Attachments", String((task.attachments || []).length + (task.pendingAttachmentFiles || []).length)],
     ["Description", task.description || "No description added."],
-    ["Remark", task.remark || "No remark added."],
-    ["Hierarchy", task.hierarchy || "No hierarchy added."],
-    ["Action Remarks", task.actionRemarks.length > 0 ? task.actionRemarks.join("\n") : "No action remarks added."],
+    ["CRT Remark", task.remark || "No remark added."],
+    ["Department / Process", task.hierarchy || "No department added."],
+    ["Action Notes", task.actionRemarks.length > 0 ? task.actionRemarks.join("\n") : "No action notes added."],
   ].forEach(function (entry) {
     const row = document.createElement("div");
     row.className = "confirm-row";
@@ -722,8 +764,8 @@ async function savePendingTask() {
     if (uploadedAttachments.length > 0) {
       await deleteAttachmentsFromStorage(uploadedAttachments);
     }
-    showAppMessage(`Could not add task: ${result.error.message}`);
-    window.alert(`Could not add task: ${result.error.message}`);
+    showAppMessage(`Could not add case: ${result.error.message}`);
+    window.alert(`Could not add case: ${result.error.message}`);
     return;
   }
 
@@ -763,7 +805,7 @@ function exportTaskReport() {
   const taskRows = tasks.length === 0
     ? `
       <tr>
-        <td colspan="14">No tasks available.</td>
+        <td colspan="14">No cases available.</td>
       </tr>
     `
     : tasks.map(function (task, index) {
@@ -772,17 +814,17 @@ function exportTaskReport() {
         <tr>
           <td>${escapeHtml(String(index + 1))}</td>
           <td>${escapeHtml(task.title)}</td>
-          <td>${escapeHtml(task.completed ? "Completed" : "Pending")}</td>
+          <td>${escapeHtml(task.completed ? "Closed" : "Pending")}</td>
           <td>${escapeHtml(task.priority)}</td>
           <td>${escapeHtml(task.dueDate ? formatDate(task.dueDate) : "")}</td>
           <td>${escapeHtml(task.dueTime ? formatTime(task.dueTime) : "")}</td>
           <td>${escapeHtml(formatRecurrenceRule(task.recurrenceRule))}</td>
           <td>${escapeHtml(task.attachments.map(function (attachment) { return attachment.name; }).join(" | ") || "No attachments")}</td>
-          <td>${escapeHtml(task.reminderEnabled ? "15 minutes before deadline" : "Off")}</td>
+          <td>${escapeHtml(task.reminderEnabled ? "15 minutes before target time" : "Off")}</td>
           <td>${escapeHtml(task.description || "No description added.")}</td>
           <td>${escapeHtml(task.remark || "No remark added.")}</td>
-          <td>${escapeHtml(task.hierarchy || "No hierarchy added.")}</td>
-          <td>${escapeHtml(task.actionRemarks.length > 0 ? task.actionRemarks.join(" | ") : "No action remarks added.")}</td>
+          <td>${escapeHtml(task.hierarchy || "No department added.")}</td>
+          <td>${escapeHtml(task.actionRemarks.length > 0 ? task.actionRemarks.join(" | ") : "No action notes added.")}</td>
           <td>${escapeHtml(latestTimelineEntry ? formatTimelineEntry(latestTimelineEntry) : "No timeline record.")}</td>
         </tr>
       `;
@@ -795,7 +837,7 @@ function exportTaskReport() {
       <head>
         <meta charset="UTF-8">
         <meta name="ProgId" content="Excel.Sheet">
-        <meta name="Generator" content="Sajin Task Management">
+        <meta name="Generator" content="UIPL CRT Portal">
         <style>
           table { border-collapse: collapse; width: 100%; }
           th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
@@ -805,39 +847,39 @@ function exportTaskReport() {
         </style>
       </head>
       <body>
-        <div class="sheet-title">Sajin Task Management Report</div>
+        <div class="sheet-title">UIPL CRT Case Report</div>
         <div class="section-title">Dashboard Summary</div>
         <table>
           <thead>
             <tr>
               <th>Report Generated At</th>
-              <th>Total Tasks</th>
-              <th>Pending Tasks</th>
-              <th>Completed Tasks</th>
-              <th>Overdue Tasks</th>
+              <th>Total Cases</th>
+              <th>Pending Cases</th>
+              <th>Closed Cases</th>
+              <th>Overdue Cases</th>
             </tr>
           </thead>
           <tbody>
             ${summaryRow}
           </tbody>
         </table>
-        <div class="section-title">Task Details</div>
+        <div class="section-title">Case Details</div>
         <table>
           <thead>
             <tr>
-              <th>Task Number</th>
-              <th>Task Name</th>
+              <th>Case Number</th>
+              <th>Case Title</th>
               <th>Status</th>
-              <th>Priority</th>
-              <th>Due Date</th>
-              <th>Due Time</th>
+              <th>Severity</th>
+              <th>Target Date</th>
+              <th>Target Time</th>
               <th>Repeat</th>
               <th>Attachments</th>
               <th>Reminder</th>
               <th>Description</th>
               <th>Remark</th>
-              <th>Hierarchy</th>
-              <th>Action Remarks</th>
+              <th>Department / Process</th>
+              <th>Action Notes</th>
               <th>Latest Timeline</th>
             </tr>
           </thead>
@@ -855,7 +897,7 @@ function exportTaskReport() {
   const fileDate = buildFileDate(now);
 
   downloadLink.href = url;
-  downloadLink.download = `sini-task-report-${fileDate}.xls`;
+  downloadLink.download = `uipl-crt-case-report-${fileDate}.xls`;
   document.body.appendChild(downloadLink);
   downloadLink.click();
   document.body.removeChild(downloadLink);
@@ -871,7 +913,7 @@ function renderDetailsBlock(task) {
 
   const remarksTitle = document.createElement("p");
   remarksTitle.className = "details-title";
-  remarksTitle.textContent = "Remarks";
+  remarksTitle.textContent = "CRT Remarks";
 
   const remarksEditButton = document.createElement("button");
   remarksEditButton.type = "button";
@@ -996,7 +1038,7 @@ function renderDetailsBlock(task) {
 
   const actionTitle = document.createElement("p");
   actionTitle.className = "details-title";
-  actionTitle.textContent = "Action Remarks";
+  actionTitle.textContent = "Action Notes";
 
   const actionEditButton = document.createElement("button");
   actionEditButton.type = "button";
@@ -1061,16 +1103,16 @@ async function editTask(taskId) {
     return;
   }
 
-  const updatedTitle = window.prompt("Edit task name:", task.title);
+  const updatedTitle = window.prompt("Edit case title:", task.title);
   if (updatedTitle === null) return;
 
   const cleanedTitle = updatedTitle.trim();
   if (!cleanedTitle) {
-    window.alert("Task name cannot be empty.");
+    window.alert("Case title cannot be empty.");
     return;
   }
 
-  const updatedPriority = window.prompt("Edit priority: High, Medium, or Low", task.priority);
+  const updatedPriority = window.prompt("Edit severity: High, Medium, or Low", task.priority);
   if (updatedPriority === null) return;
 
   const cleanedPriority = formatPriority(updatedPriority);
@@ -1104,7 +1146,7 @@ async function editTask(taskId) {
   }
 
   const updatedReminderEnabled = window.prompt(
-    "Reminder before deadline? Type yes or no.",
+    "Reminder before target time? Type yes or no.",
     task.reminderEnabled ? "yes" : "no"
   );
   if (updatedReminderEnabled === null) return;
@@ -1118,14 +1160,14 @@ async function editTask(taskId) {
   const updatedDescription = window.prompt("Edit description:", task.description || "");
   if (updatedDescription === null) return;
 
-  const updatedRemark = window.prompt("Edit remark:", task.remark || "");
+  const updatedRemark = window.prompt("Edit CRT remark:", task.remark || "");
   if (updatedRemark === null) return;
 
-  const updatedHierarchy = window.prompt("Edit hierarchy:", task.hierarchy || "");
+  const updatedHierarchy = window.prompt("Edit department / process:", task.hierarchy || "");
   if (updatedHierarchy === null) return;
 
   const updatedActionRemarks = window.prompt(
-    "Edit action remarks. Use commas between items. Maximum 3.",
+    "Edit action notes. Use commas between items. Maximum 3.",
     task.actionRemarks.join(", ")
   );
   if (updatedActionRemarks === null) return;
@@ -1156,7 +1198,7 @@ async function editTask(taskId) {
     task.recurrenceLastGeneratedAt = "";
   }
   task.actionRemarks = parseActionRemarks(updatedActionRemarks);
-  task.timeline.unshift(createTimelineEntry("Task details edited"));
+  task.timeline.unshift(createTimelineEntry("Case details edited"));
 
   await saveTask(task);
   renderTasks();
@@ -1171,18 +1213,18 @@ async function editTaskNotes(taskId) {
     return;
   }
 
-  const updatedRemark = window.prompt("Edit remark:", task.remark || "");
+  const updatedRemark = window.prompt("Edit CRT remark:", task.remark || "");
   if (updatedRemark === null) return;
 
   const updatedActionRemarks = window.prompt(
-    "Edit action remarks. Use commas between items. Maximum 3.",
+    "Edit action notes. Use commas between items. Maximum 3.",
     task.actionRemarks.join(", ")
   );
   if (updatedActionRemarks === null) return;
 
   task.remark = updatedRemark.trim();
   task.actionRemarks = parseActionRemarks(updatedActionRemarks);
-  task.timeline.unshift(createTimelineEntry("Remarks updated"));
+  task.timeline.unshift(createTimelineEntry("CRT notes updated"));
   await saveTask(task);
   renderTasks();
 }
@@ -1194,8 +1236,8 @@ async function saveTask(task) {
     .eq("id", task.id);
 
   if (result.error) {
-    showAppMessage(`Could not update task: ${result.error.message}`);
-    window.alert(`Could not update task: ${result.error.message}`);
+    showAppMessage(`Could not update case: ${result.error.message}`);
+    window.alert(`Could not update case: ${result.error.message}`);
     return false;
   }
 
@@ -1209,8 +1251,8 @@ async function deleteTask(taskId) {
   const result = await supabaseClient.from("tasks").delete().eq("id", taskId);
 
   if (result.error) {
-    showAppMessage(`Could not delete task: ${result.error.message}`);
-    window.alert(`Could not delete task: ${result.error.message}`);
+    showAppMessage(`Could not delete case: ${result.error.message}`);
+    window.alert(`Could not delete case: ${result.error.message}`);
     return;
   }
 
@@ -1262,7 +1304,7 @@ function importCsvFile(file) {
       });
 
     if (importedTasks.length === 0) {
-      window.alert("No valid tasks were found in the CSV file.");
+      window.alert("No valid cases were found in the CSV file.");
       return;
     }
 
@@ -1272,15 +1314,15 @@ function importCsvFile(file) {
       .select();
 
     if (result.error) {
-      showAppMessage(`Could not import tasks: ${result.error.message}`);
-      window.alert(`Could not import tasks: ${result.error.message}`);
+      showAppMessage(`Could not import cases: ${result.error.message}`);
+      window.alert(`Could not import cases: ${result.error.message}`);
       return;
     }
 
     clearAppMessage();
     tasks = result.data.map(normalizeTask).concat(tasks);
     renderTasks();
-    window.alert(`${result.data.length} tasks imported successfully.`);
+    window.alert(`${result.data.length} cases imported successfully.`);
   };
 
   reader.onerror = function () {
@@ -1347,7 +1389,7 @@ function formatTimelineEntry(entry) {
 
 function validateAttachmentFiles(fileList, existingCount) {
   if (existingCount + fileList.length > MAX_ATTACHMENTS_PER_TASK) {
-    return `You can upload up to ${MAX_ATTACHMENTS_PER_TASK} attachments per task.`;
+    return `You can upload up to ${MAX_ATTACHMENTS_PER_TASK} attachments per case.`;
   }
 
   for (const file of fileList) {
@@ -2503,6 +2545,11 @@ function clearAppMessage() {
   appMessage.hidden = true;
 }
 
+function updateVerificationUi(email) {
+  pendingVerificationEmail = email || "";
+  resendVerificationButton.hidden = !pendingVerificationEmail;
+}
+
 function formatNetworkErrorMessage(error) {
   const errorMessage = error && error.message ? String(error.message) : "";
 
@@ -2519,6 +2566,11 @@ function formatNetworkErrorMessage(error) {
   }
 
   return errorMessage || "Something went wrong while connecting to Supabase.";
+}
+
+function isEmailVerificationPendingError(message) {
+  const errorMessage = String(message || "").toLowerCase();
+  return errorMessage.includes("email not confirmed") || errorMessage.includes("waiting for verification");
 }
 
 if ("serviceWorker" in navigator) {

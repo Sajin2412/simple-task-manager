@@ -1,10 +1,10 @@
 {
-  "name": "Sajin Task Management",
-  "short_name": "Sajin Tasks",
+  "name": "UIPL CRT Portal",
+  "short_name": "UIPL CRT",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f9fafb",
-  "theme_color": "#06b6d4",
-  "description": "A simple personal task manager you can use on desktop or iPhone.",
+  "theme_color": "#0f766e",
+  "description": "A CRT case tracking portal for UIPL teams on desktop or mobile.",
   "icons": []
 }
