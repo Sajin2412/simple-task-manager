@@ -52,6 +52,11 @@ button {
   background: #ffffff;
 }
 
+.standalone-scene {
+  min-height: calc(100vh - 68px);
+  padding-bottom: 72px;
+}
+
 .illustration {
   position: absolute;
   inset: 0;
@@ -165,6 +170,13 @@ button {
   color: #c2410c;
   font-size: 14px;
   font-weight: 700;
+}
+
+.success-message {
+  margin: 0;
+  color: #4f5e70;
+  font-size: 20px;
+  line-height: 1.5;
 }
 
 .review-list {
